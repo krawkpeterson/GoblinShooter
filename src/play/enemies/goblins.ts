@@ -196,8 +196,13 @@ export class GoblinManager {
     g.deadVel.set(dir.x, 0, dir.z).normalize().multiplyScalar(force);
     g.deadVel.y = big ? 5 : 2.5;
     g.deadSpin.set((Math.random() - 0.5) * 4 - 3, (Math.random() - 0.5) * 6, (Math.random() - 0.5) * 4);
-    if (g.faction === "geezer") this.audio.geezer("death", g.def.voice, this.panFor(g.pos), g.pos.distanceTo(this.listener));
-    else this.audio.goblin("death", g.def.voice, this.panFor(g.pos), g.pos.distanceTo(this.listener));
+    const dist = g.pos.distanceTo(this.listener);
+    const pan = this.panFor(g.pos);
+    if (g.faction === "geezer") this.audio.geezer("death", g.def.voice, pan, dist);
+    else {
+      this.audio.goblin("death", g.def.voice, pan, dist);
+      this.audio.gore(pan, dist);
+    }
     const headPos = new THREE.Vector3();
     g.rig.head.getWorldPosition(headPos);
     if (head && g.kind !== "king") {
