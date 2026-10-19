@@ -11,7 +11,7 @@ import { LocalProjection } from "./geo/projection.ts";
 import { currentWeather } from "./geo/weather.ts";
 import { geocodeZip } from "./geo/zip.ts";
 
-const RESOLUTION: Record<WorldSize, number> = { 600: 161, 1000: 193, 1600: 225 };
+const RESOLUTION: Record<WorldSize, number> = { 600: 257, 1000: 321, 1600: 385 };
 
 export async function buildWorld(
   zip: string,
