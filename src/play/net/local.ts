@@ -43,7 +43,7 @@ export function localStreamWorld(zip: string, size: WorldSize, onProgress: (p: W
     const { buildWorld } = await import("../../../server/world.ts");
     try {
       const world = await buildWorld(zip, size, emit);
-      if (world.buildings.length || world.roads.length) void storeWorld(zip, size, world);
+      void storeWorld(zip, size, world);
       emit({ type: "done", world });
       return world;
     } catch (err) {
