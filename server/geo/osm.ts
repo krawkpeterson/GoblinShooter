@@ -32,21 +32,23 @@ export interface OsmFeatures {
 async function queryOverpass(
   query: string,
   onLog: (m: string) => void,
-  timeoutMs = 40000,
+  timeoutMs = 8000,
 ): Promise<{ elements: OsmElement[]; host: string }> {
+  const browser = typeof window !== "undefined";
+  const urls = browser ? OVERPASS_ENDPOINTS.slice(0, 2) : OVERPASS_ENDPOINTS;
+  const budget = browser ? Math.min(timeoutMs, 8000) : timeoutMs;
   let lastErr: unknown;
-  for (const url of OVERPASS_ENDPOINTS) {
+  for (const url of urls) {
     const host = new URL(url).host;
     try {
-      const body = new URLSearchParams({ data: query }).toString();
-      let res = await fetchWithTimeout(url, {
-        method: "POST",
-        timeoutMs,
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body,
-      });
-      if (!res.ok) {
-        res = await fetchWithTimeout(`${url}?data=${encodeURIComponent(query)}`, { method: "GET", timeoutMs });
+      let res = await fetchWithTimeout(`${url}?data=${encodeURIComponent(query)}`, { method: "GET", timeoutMs: budget });
+      if (!res.ok && !browser) {
+        res = await fetchWithTimeout(url, {
+          method: "POST",
+          timeoutMs: budget,
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({ data: query }).toString(),
+        });
       }
       if (!res.ok) throw new Error(`${res.status}`);
       const json = (await res.json()) as { elements: OsmElement[] };
@@ -125,8 +127,8 @@ export async function fetchOsm(
   const half = sizeMeters / 2;
   const bb = proj.bbox(half * 1.05);
   const b = `${bb.south.toFixed(6)},${bb.west.toFixed(6)},${bb.north.toFixed(6)},${bb.east.toFixed(6)}`;
-  const buildingsQuery = `[out:json][timeout:45];way["building"](${b});out geom qt;`;
-  const restQuery = `[out:json][timeout:30];
+  const buildingsQuery = `[out:json][timeout:8];way["building"](${b});out geom qt;`;
+  const restQuery = `[out:json][timeout:8];
 (
   way["highway"](${b});
   way["natural"~"^(water|wood|beach|sand|grassland|scrub|heath)$"](${b});
@@ -139,32 +141,20 @@ export async function fetchOsm(
 );
 out geom qt;`;
 
-  let elements: OsmElement[] = [];
-  let host = "none";
-  try {
-    const [buildingsHit, restHit] = await Promise.all([
-      queryOverpass(buildingsQuery, onLog, 45000),
-      queryOverpass(restQuery, onLog, 30000).catch((err): { elements: OsmElement[]; host: string } => {
-        onLog(`Streets/landcover failed (${(err as Error).message}); buildings still inbound`);
-        return { elements: [], host: "none" };
-      }),
-    ]);
-    elements = [...buildingsHit.elements, ...restHit.elements];
-    host = buildingsHit.host;
-  } catch (err) {
-    onLog(`Overpass failed (${(err as Error).message}); pulling the OSM map API`);
-  }
-  if (!elements.some((e) => e.tags?.building && (e.geometry?.length ?? 0) >= 3)) {
-    onLog("No building footprints yet — fetching OSM map export");
-    try {
-      const extra = await queryOsmMap(bb, onLog);
-      elements = [...elements, ...extra];
-      host = host === "none" ? "api.openstreetmap.org" : `${host} + map API`;
-    } catch (err) {
-      onLog(`OSM map API failed (${(err as Error).message})`);
-      if (!elements.length) throw err as Error;
-    }
-  }
+  onLog("Surveying streets and buildings (Overpass + OSM map export in parallel)");
+  const [overB, overR, mapEls] = await Promise.all([
+    queryOverpass(buildingsQuery, onLog, 8000).catch((err): { elements: OsmElement[]; host: string } => {
+      onLog(`Overpass buildings failed (${(err as Error).message})`);
+      return { elements: [], host: "none" };
+    }),
+    queryOverpass(restQuery, onLog, 8000).catch((): { elements: OsmElement[]; host: string } => ({ elements: [], host: "none" })),
+    queryOsmMap(bb, onLog).catch((err): OsmElement[] => {
+      onLog(`OSM map export failed (${(err as Error).message})`);
+      return [];
+    }),
+  ]);
+  const elements = [...overB.elements, ...overR.elements, ...mapEls];
+  const host = overB.host !== "none" ? overB.host : mapEls.length ? "api.openstreetmap.org" : "none";
   onLog(`OpenStreetMap returned ${elements.length.toLocaleString()} raw elements from ${host}`);
 
   const toPts = (g: OsmGeomPoint[]): Vec2[] =>
@@ -244,14 +234,30 @@ async function queryOsmMap(
   bb: { south: number; west: number; north: number; east: number },
   onLog: (m: string) => void,
 ): Promise<OsmElement[]> {
-  const url =
+  const raw =
     `https://api.openstreetmap.org/api/0.6/map?bbox=${bb.west.toFixed(6)},${bb.south.toFixed(6)},${bb.east.toFixed(6)},${bb.north.toFixed(6)}`;
-  const res = await fetchWithTimeout(url, { timeoutMs: 60000 });
-  if (!res.ok) throw new Error(`OSM map API ${res.status}`);
-  const xml = await res.text();
-  const elements = parseOsmXml(xml);
-  onLog(`OSM map API returned ${elements.length.toLocaleString()} elements`);
-  return elements;
+  const urls = [
+    raw,
+    `https://corsproxy.io/?${encodeURIComponent(raw)}`,
+    `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(raw)}`,
+  ];
+  let lastErr: unknown;
+  for (const url of urls) {
+    const host = (() => { try { return new URL(url).host; } catch { return "proxy"; } })();
+    try {
+      const res = await fetchWithTimeout(url, { timeoutMs: 14000 });
+      if (!res.ok) throw new Error(`${res.status}`);
+      const xml = await res.text();
+      if (!xml.includes("<osm")) throw new Error("not OSM XML");
+      const elements = parseOsmXml(xml);
+      onLog(`OSM map export via ${host}: ${elements.length.toLocaleString()} elements`);
+      return elements;
+    } catch (err) {
+      lastErr = err;
+      onLog(`OSM map via ${host} failed (${(err as Error).message})`);
+    }
+  }
+  throw new Error(`OSM map export unreachable: ${String(lastErr)}`);
 }
 
 function xmlAttrs(tag: string): Record<string, string> {
