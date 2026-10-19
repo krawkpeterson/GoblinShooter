@@ -28,15 +28,16 @@ function m(geo: THREE.BufferGeometry, mat: THREE.Material, x = 0, y = 0, z = 0) 
 
 /** Hunched old man in a black hoodie, drowning in emo makeup, packing a .22. */
 export function buildGeezer(): GoblinRig {
-  const skinMat = new THREE.MeshStandardMaterial({ color: "#c9b8a8", roughness: 0.78 });
-  const eyeMat = new THREE.MeshStandardMaterial({ color: "#1a1020", emissive: "#5a1a6a", emissiveIntensity: 1.6 });
-  const makeup = new THREE.MeshStandardMaterial({ color: "#09090c", roughness: 0.55 });
-  const lipstick = new THREE.MeshStandardMaterial({ color: "#14040a", roughness: 0.35 });
-  const hair = new THREE.MeshStandardMaterial({ color: "#0a0a0c", roughness: 0.85 });
-  const gray = new THREE.MeshStandardMaterial({ color: "#c8c4bc", roughness: 0.9 });
-  const hoodie = new THREE.MeshStandardMaterial({ color: "#121216", roughness: 0.95, side: THREE.DoubleSide });
-  const jeans = new THREE.MeshStandardMaterial({ color: "#1a1a22", roughness: 0.92 });
-  const wrinkle = new THREE.MeshStandardMaterial({ color: "#a89888", roughness: 0.9 });
+  const skinMat = new THREE.MeshStandardMaterial({ color: "#f0e6dc", roughness: 0.55 });
+  const eyeMat = new THREE.MeshStandardMaterial({ color: "#0a0610", emissive: "#c45cff", emissiveIntensity: 3.4 });
+  const makeup = new THREE.MeshStandardMaterial({ color: "#050508", roughness: 0.4 });
+  const lipstick = new THREE.MeshStandardMaterial({ color: "#3a0410", roughness: 0.28 });
+  const hair = new THREE.MeshStandardMaterial({ color: "#111118", roughness: 0.7 });
+  const gray = new THREE.MeshStandardMaterial({ color: "#d4d0c8", roughness: 0.85 });
+  const hoodie = new THREE.MeshStandardMaterial({ color: "#2a2038", roughness: 0.88, side: THREE.DoubleSide });
+  const jeans = new THREE.MeshStandardMaterial({ color: "#1c1c28", roughness: 0.9 });
+  const wrinkle = new THREE.MeshStandardMaterial({ color: "#c8b8a8", roughness: 0.85 });
+  const pale = new THREE.MeshStandardMaterial({ color: "#fff6ee", roughness: 0.45, emissive: "#3a2848", emissiveIntensity: 0.25 });
 
   const root = new THREE.Group();
   const body = new THREE.Group();
@@ -57,14 +58,14 @@ export function buildGeezer(): GoblinRig {
   const head = new THREE.Group();
   head.position.set(0, 0.52, -0.02);
   torso.add(head);
-  const skull = m(G.head, skinMat);
+  const skull = m(G.head, pale);
   skull.scale.set(0.95, 1.05, 0.95);
   head.add(skull);
 
-  const bagsL = m(G.makeup, makeup, -0.08, 0.02, -0.175);
-  bagsL.scale.set(1.35, 1.1, 0.55);
-  const bagsR = m(G.makeup, makeup, 0.08, 0.02, -0.175);
-  bagsR.scale.set(1.35, 1.1, 0.55);
+  const bagsL = m(G.makeup, makeup, -0.08, 0.03, -0.17);
+  bagsL.scale.set(1.7, 1.45, 0.7);
+  const bagsR = m(G.makeup, makeup, 0.08, 0.03, -0.17);
+  bagsR.scale.set(1.7, 1.45, 0.7);
   head.add(bagsL, bagsR);
   const tearL = m(new THREE.BoxGeometry(0.025, 0.12, 0.02), makeup, -0.08, -0.08, -0.185);
   tearL.rotation.z = 0.15;

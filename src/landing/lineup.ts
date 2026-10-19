@@ -38,6 +38,9 @@ export class GoblinLineup {
     const ember = new THREE.PointLight(0xff6a00, 30, 18, 2);
     ember.position.set(9, 2, 3);
     this.scene.add(ember);
+    const emo = new THREE.PointLight(0xc45cff, 40, 14, 2);
+    emo.position.set(-2.8, 2.4, 3);
+    this.scene.add(emo);
 
     const floor = new THREE.Mesh(new THREE.CircleGeometry(30, 64).rotateX(-Math.PI / 2), new THREE.ShadowMaterial({ opacity: 0.55 }));
     floor.receiveShadow = true;

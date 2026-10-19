@@ -387,10 +387,13 @@ body.shake { animation: page-shake 0.45s; }
 /* ---------- bestiary ---------- */
 .lineup { position: relative; margin-top: 60px; border-radius: 26px; border: 1px solid var(--line); overflow: hidden; background: radial-gradient(ellipse 80% 70% at 50% 100%, rgba(182, 255, 31, 0.1), transparent 60%), #06090d; }
 .lineup-canvas { display: block; width: 100%; height: 480px; }
-.lineup-cards { display: grid; grid-template-columns: repeat(5, 1fr); border-top: 1px solid var(--line); }
+.lineup-cards { display: grid; grid-template-columns: repeat(6, 1fr); border-top: 1px solid var(--line); }
+.foe[data-kind="geezer"] b { color: #c45cff; }
+.foe[data-kind="geezer"] span { color: #c45cff; }
 .foe { padding: 22px 20px 26px; border-right: 1px solid var(--line); transition: background 0.3s; cursor: default; }
 .foe:last-child { border-right: 0; }
 .foe:hover, .foe.on { background: rgba(182, 255, 31, 0.05); }
+.foe[data-kind="geezer"]:hover, .foe[data-kind="geezer"].on { background: rgba(196, 92, 255, 0.08); }
 .foe b { display: block; font-family: var(--display); font-weight: 400; font-size: 28px; letter-spacing: 0.04em; }
 .foe span { display: block; font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; color: var(--acid); margin-top: 4px; }
 .foe p { margin-top: 10px; font-size: 15px; color: #8f9bab; line-height: 1.4; }

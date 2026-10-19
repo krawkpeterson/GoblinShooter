@@ -147,7 +147,8 @@ export class Game {
       if (t.length) this.hud.killfeed(`<em>${g.def.name.toUpperCase()}</em>“${t[Math.floor(Math.random() * t.length)]}”`, false);
     };
     this.goblins.onSummon = (x, z) => {
-      for (let i = 0; i < 3; i++) this.spawnNear("runner", x, z, 6);
+      for (let i = 0; i < 2; i++) this.spawnNear("runner", x, z, 6);
+      this.spawnNear("geezer", x, z, 6);
     };
 
     if (withTutorial) {
@@ -527,17 +528,22 @@ export class Game {
     this.phaseT = 0;
     this.hud.setWave(n, this.world.director.waves);
     const count = this.world.director.goblinsPerWave + (n - 1) * 3;
+    const geezerN = Math.max(2, Math.round(count * 0.34));
     this.spawnQueue = [];
-    let geezers = 0;
-    for (let i = 0; i < count; i++) {
+    for (let i = 0; i < count - geezerN; i++) {
       const r = Math.random();
       let k: HostileKind = "grunt";
-      if (r < 0.28) { k = "geezer"; geezers++; }
-      else if (n >= 2 && r < 0.46) k = "runner";
-      else if (n >= 3 && r < 0.58) k = "shaman";
-      else if (n >= 2 && r < 0.58 + n * 0.025) k = "brute";
+      if (n >= 2 && r < 0.28) k = "runner";
+      else if (n >= 3 && r < 0.42) k = "shaman";
+      else if (n >= 2 && r < 0.42 + n * 0.03) k = "brute";
       this.spawnQueue.push(k);
     }
+    for (let i = 0; i < geezerN; i++) this.spawnQueue.push("geezer");
+    for (let i = this.spawnQueue.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [this.spawnQueue[i], this.spawnQueue[j]] = [this.spawnQueue[j], this.spawnQueue[i]];
+    }
+    const geezers = geezerN;
     this.spawnT = 0.5;
     this.audio.goblin("alert", 0.9, 0, 30);
     const sub = geezers ? `${count - geezers} GOBLINS · ${geezers} EMO GEEZERS` : `${count} GOBLINS INBOUND`;
