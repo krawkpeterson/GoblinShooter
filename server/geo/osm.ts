@@ -3,10 +3,10 @@ import { fetchWithTimeout } from "./http.ts";
 import type { LocalProjection } from "./projection.ts";
 
 const OVERPASS_ENDPOINTS = [
-  "https://overpass-api.de/api/interpreter",
   "https://overpass.kumi.systems/api/interpreter",
   "https://overpass.private.coffee/api/interpreter",
   "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
+  "https://overpass-api.de/api/interpreter",
 ];
 
 interface OsmGeomPoint { lat: number; lon: number }
@@ -36,12 +36,12 @@ async function queryOverpass(query: string, onLog: (m: string) => void): Promise
       const body = new URLSearchParams({ data: query }).toString();
       let res = await fetchWithTimeout(url, {
         method: "POST",
-        timeoutMs: 28000,
+        timeoutMs: 14000,
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body,
       });
       if (!res.ok) {
-        res = await fetchWithTimeout(`${url}?data=${encodeURIComponent(query)}`, { method: "GET", timeoutMs: 28000 });
+        res = await fetchWithTimeout(`${url}?data=${encodeURIComponent(query)}`, { method: "GET", timeoutMs: 14000 });
       }
       if (!res.ok) throw new Error(`${res.status}`);
       const json = (await res.json()) as { elements: OsmElement[] };
