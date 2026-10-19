@@ -108,15 +108,27 @@ export function buildCity(world: WorldData, terrain: Terrain, collision: (c: Bui
   const colliders: BuildingCollider[] = [];
 
   world.buildings.forEach((b, idx) => {
+    try {
     const pts = b.footprint;
     if (pts.length < 3) return;
     const r = rng(idx * 7919 + pts.length);
     const hs = pts.map(([x, z]) => terrain.heightAt(x, z));
-    const base = Math.min(...hs) - 0.8;
     const ground = hs.reduce((a, h) => a + h, 0) / hs.length;
-    const top = Math.max(ground + b.height, Math.max(...hs) + 2.4);
+    const lift = b.minHeight ?? 0;
+    const floorY = ground + lift;
+    const base = Math.min(...hs) - 0.85;
+    const top = Math.max(floorY + Math.max(2.4, b.height - lift), Math.max(...hs) + 2.4);
     const area = polyArea(pts);
     const house = HOUSE_KINDS.has(b.kind) && area < 450 && pts.length <= 10 && b.height < 12;
+    const enterable = area > 18 && top - floorY > 2.3 && b.kind !== "roof" && b.kind !== "garage";
+    let doorIdx = -1, doorLen = 0;
+    if (enterable) {
+      for (let i = 0; i < pts.length; i++) {
+        const [ax, az] = pts[i], [bx, bz] = pts[(i + 1) % pts.length];
+        const elen = Math.hypot(bx - ax, bz - az);
+        if (elen > doorLen) { doorLen = elen; doorIdx = i; }
+      }
+    }
 
     let flip = false;
     for (let i = 0; i < pts.length; i++) {
@@ -143,16 +155,32 @@ export function buildCity(world: WorldData, terrain: Terrain, collision: (c: Bui
       const B = sameAsCross ? [bx, bz] : [ax, az];
       const uA = sameAsCross ? perim : perim + len;
       const uB = sameAsCross ? perim + len : perim;
-      const a0 = [A[0], base, A[1]], b0 = [B[0], base, B[1]], b1 = [B[0], top, B[1]], a1 = [A[0], top, A[1]];
-      const vTop = (top - base) / 3.4 / WIN_CELLS;
+      const doorEdge = i === doorIdx && len > 1.8;
+      const doorW = Math.min(1.35, len * 0.28);
+      const doorH = Math.min(2.25, (top - floorY) * 0.72);
       const uv = (u: number, v: number) => [u / 3.6 / WIN_CELLS, v];
-      const tri = [a0, b0, b1, a0, b1, a1];
-      const tuv = [uv(uA, 0), uv(uB, 0), uv(uB, vTop), uv(uA, 0), uv(uB, vTop), uv(uA, vTop)];
-      for (let k = 0; k < 6; k++) {
-        walls.pos.push(...tri[k]);
-        walls.nor.push(nx, 0, nz);
-        walls.uv.push(...tuv[k]);
-        walls.col.push(wc.r * shade, wc.g * shade, wc.b * shade);
+      const pushWall = (ax0: number, az0: number, bx0: number, bz0: number, y0: number, y1: number, u0: number, u1: number) => {
+        const a0 = [ax0, y0, az0], b0 = [bx0, y0, bz0], b1 = [bx0, y1, bz0], a1 = [ax0, y1, az0];
+        const v0 = (y0 - base) / 3.4 / WIN_CELLS, v1 = (y1 - base) / 3.4 / WIN_CELLS;
+        const tri = [a0, b0, b1, a0, b1, a1];
+        const tuv = [uv(u0, v0), uv(u1, v0), uv(u1, v1), uv(u0, v0), uv(u1, v1), uv(u0, v1)];
+        for (let k = 0; k < 6; k++) {
+          walls.pos.push(...tri[k]);
+          walls.nor.push(nx, 0, nz);
+          walls.uv.push(...tuv[k]);
+          walls.col.push(wc.r * shade, wc.g * shade, wc.b * shade);
+        }
+      };
+      if (doorEdge) {
+        const t0 = 0.5 - doorW / 2 / len, t1 = 0.5 + doorW / 2 / len;
+        const sx = A[0] + (B[0] - A[0]) * t0, sz = A[1] + (B[1] - A[1]) * t0;
+        const ex = A[0] + (B[0] - A[0]) * t1, ez = A[1] + (B[1] - A[1]) * t1;
+        const uS = uA + (uB - uA) * t0, uE = uA + (uB - uA) * t1;
+        pushWall(A[0], A[1], sx, sz, base, top, uA, uS);
+        pushWall(ex, ez, B[0], B[1], base, top, uE, uB);
+        pushWall(sx, sz, ex, ez, floorY + doorH, top, uS, uE);
+      } else {
+        pushWall(A[0], A[1], B[0], B[1], base, top, uA, uB);
       }
       perim += len;
     }
@@ -180,17 +208,19 @@ export function buildCity(world: WorldData, terrain: Terrain, collision: (c: Bui
         else pushRoof([pa, pb, apex], n);
       }
     } else {
-      const contour = pts.map(([x, z]) => new THREE.Vector2(x, z));
-      const faces = THREE.ShapeUtils.triangulateShape(contour, []);
-      const up = new THREE.Vector3(0, 1, 0);
-      for (const [ia, ib, ic] of faces) {
-        const pa = pts[ia], pb = pts[ib], pc = pts[ic];
-        const cy = (pb[1] - pa[1]) * (pc[0] - pa[0]) - (pb[0] - pa[0]) * (pc[1] - pa[1]);
-        const tri = cy >= 0 ? [pa, pb, pc] : [pa, pc, pb];
-        pushRoof(tri.map(([x, z]) => [x, top, z]), up);
-      }
+      fanRoof(pts, top, (p, n) => pushRoof(p, n));
     }
-    colliders.push({ poly: pts, base, top });
+    if (enterable) {
+      fanRoof(pts, floorY + 0.04, (p, n) => {
+        const up = n.y >= 0 ? n : n.clone().negate();
+        pushRoof(p.map((v) => [v[0], floorY + 0.04, v[2]]), up);
+      });
+    }
+    const door = enterable ? doorOnLongest(pts, Math.min(2.25, (top - floorY) * 0.72)) : undefined;
+    colliders.push({ poly: pts, base, top, floor: floorY, hollow: enterable, door });
+    } catch {
+      /* skip degenerate OSM footprints so one bad roof cannot freeze load */
+    }
   });
 
   const windowMaterial = new THREE.MeshStandardMaterial({
@@ -237,14 +267,16 @@ export function buildCity(world: WorldData, terrain: Terrain, collision: (c: Bui
     if (a.kind !== "water" || a.polygon.length < 3) continue;
     const ys = a.polygon.map(([x, z]) => terrain.heightAt(x, z));
     const y = Math.min(...ys) + 0.35;
-    const shape = new THREE.Shape(a.polygon.map(([x, z]) => new THREE.Vector2(x, -z)));
-    const g = new THREE.ShapeGeometry(shape);
-    g.rotateX(-Math.PI / 2);
-    const m = new THREE.Mesh(g, waterMaterial);
-    m.position.y = y;
-    m.receiveShadow = true;
-    water.push(m);
-    group.add(m);
+    try {
+      const shape = new THREE.Shape(a.polygon.map(([x, z]) => new THREE.Vector2(x, -z)));
+      const g = new THREE.ShapeGeometry(shape);
+      g.rotateX(-Math.PI / 2);
+      const m = new THREE.Mesh(g, waterMaterial);
+      m.position.y = y;
+      m.receiveShadow = true;
+      water.push(m);
+      group.add(m);
+    } catch { /* skip bad water polygons */ }
   }
   if (terrain.seaLevel !== null) {
     const g = new THREE.PlaneGeometry(terrain.size * 4, terrain.size * 4, 1, 1);
@@ -264,6 +296,44 @@ export function buildCity(world: WorldData, terrain: Terrain, collision: (c: Bui
     build: { group, buildingMeshes, colliders, windowMaterial, water, waterMaterial, cars },
     collisionWorld,
   };
+}
+
+function doorOnLongest(pts: Vec2[], height: number) {
+  let bi = 0, bl = 0;
+  for (let i = 0; i < pts.length; i++) {
+    const [ax, az] = pts[i], [bx, bz] = pts[(i + 1) % pts.length];
+    const len = Math.hypot(bx - ax, bz - az);
+    if (len > bl) { bl = len; bi = i; }
+  }
+  const [ax, az] = pts[bi], [bx, bz] = pts[(bi + 1) % pts.length];
+  const w = Math.min(1.35, bl * 0.28);
+  return { ax, az, bx, bz, t0: 0.5 - w / 2 / bl, t1: 0.5 + w / 2 / bl, height };
+}
+
+function fanRoof(pts: Vec2[], y: number, push: (p: number[][], n: THREE.Vector3) => void) {
+  const contour = pts.map(([x, z]) => new THREE.Vector2(x, z));
+  let faces: number[][] = [];
+  try {
+    faces = THREE.ShapeUtils.triangulateShape(contour, []);
+  } catch {
+    let cx = 0, cz = 0;
+    for (const [x, z] of pts) { cx += x; cz += z; }
+    cx /= pts.length; cz /= pts.length;
+    for (let i = 0; i < pts.length; i++) {
+      const pa = pts[i], pb = pts[(i + 1) % pts.length];
+      const n = new THREE.Vector3(0, 1, 0);
+      push([[pa[0], y, pa[1]], [pb[0], y, pb[1]], [cx, y, cz]], n);
+    }
+    return;
+  }
+  const up = new THREE.Vector3(0, 1, 0);
+  for (const [ia, ib, ic] of faces) {
+    const pa = pts[ia], pb = pts[ib], pc = pts[ic];
+    if (!pa || !pb || !pc) continue;
+    const cy = (pb[1] - pa[1]) * (pc[0] - pa[0]) - (pb[0] - pa[0]) * (pc[1] - pa[1]);
+    const tri = cy >= 0 ? [pa, pb, pc] : [pa, pc, pb];
+    push(tri.map(([x, z]) => [x, y, z]), up);
+  }
 }
 
 function polyArea(poly: Vec2[]) {
