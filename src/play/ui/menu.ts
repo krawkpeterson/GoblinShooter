@@ -1,6 +1,7 @@
 import { WORLD_SIZES, type WorldSize } from "../../../shared/types.ts";
 import type { AudioEngine } from "../audio/audio.ts";
 import { fetchHealth, fetchLeaderboard, lookupZip } from "../net/api.ts";
+import type { LoadoutId } from "../weapons/weapons.ts";
 import { ContourFlyover } from "./menuBackground.ts";
 
 export interface DeployRequest {
@@ -9,6 +10,7 @@ export interface DeployRequest {
   callsign: string;
   tutorial: boolean;
   lighting: Lighting;
+  loadout: LoadoutId;
 }
 
 export type Lighting = "live" | "noon" | "golden" | "night";
@@ -38,6 +40,7 @@ export class Menu {
   private bg: ContourFlyover;
   private size: WorldSize = 1000;
   private lighting: Lighting = "live";
+  private loadout: LoadoutId = 0;
   private validZip: string | null = null;
   private lookupSeq = 0;
 
@@ -50,6 +53,8 @@ export class Menu {
     const savedLight = (params.get("tod") ?? localStorage.getItem("krawk.lighting")) as Lighting | null;
     if (savedLight && LIGHTINGS.some(([k]) => k === savedLight)) this.lighting = savedLight;
     const bootcampDone = localStorage.getItem("krawk.bootcamp") === "1";
+    const savedLoad = Number(localStorage.getItem("krawk.loadout"));
+    if (savedLoad === 0 || savedLoad === 1) this.loadout = savedLoad;
 
     this.el.innerHTML = `
       <canvas class="menu-bg"></canvas>
@@ -64,7 +69,7 @@ export class Menu {
         <div class="menu-left">
           <div class="eyebrow">Real-world terrain combat</div>
           <h1 class="title glitch" data-text="KRAWK">KRAWK</h1>
-          <p class="tagline">Type any US zip code. We pull the <b>real elevation, streets and buildings</b>, an AI director builds the battle, and goblins pour in. You get a <b>.45 double-stack 1911</b> and a <b>.44 Magnum Anaconda</b>.</p>
+          <p class="tagline">Type any US zip code. We pull the <b>real elevation, streets and buildings</b>, an AI director builds the battle, and goblins pour in. Pick a loadout: keep the <b>.45 1911</b> and <b>.44 Anaconda</b>, or go frontier with a <b>Ruger Old Army</b> and a <b>Winchester Model 12</b>.</p>
           <form class="deploy-form" autocomplete="off">
             <label class="field-label">TARGET ZIP CODE</label>
             <div class="zip-cells">${'<input class="zip-cell" maxlength="1" inputmode="numeric" placeholder="0" />'.repeat(5)}</div>
@@ -85,11 +90,23 @@ export class Menu {
         </div>
         <aside class="menu-right">
           <div class="panel loadout">
-            <h3><span>LOADOUT</span><span>2 / 2</span></h3>
-            <div class="gun-card"><div><b>M1911 DOUBLE-STACK</b><span>.45 ACP · 14+1 · SEMI</span></div>
-              <div class="bars"><div class="bar"><i style="width:55%"></i></div><div class="bar"><i style="width:88%"></i></div><div class="bar"><i style="width:80%"></i></div></div></div>
-            <div class="gun-card mag"><div><b>COLT ANACONDA</b><span>.44 MAGNUM · 6 RDS · PENETRATES</span></div>
-              <div class="bars"><div class="bar"><i style="width:100%"></i></div><div class="bar"><i style="width:30%"></i></div><div class="bar"><i style="width:95%"></i></div></div></div>
+            <h3><span>LOADOUT</span><span class="load-n">ALPHA</span></h3>
+            <div class="seg load-seg">
+              <button type="button" class="seg-btn load-btn on" data-load="0"><b>ALPHA</b><small>1911 · ANACONDA</small></button>
+              <button type="button" class="seg-btn load-btn" data-load="1"><b>BRAVO</b><small>OLD ARMY · MODEL 12</small></button>
+            </div>
+            <div class="load-set" data-set="0">
+              <div class="gun-card"><div><b>M1911 DOUBLE-STACK</b><span>.45 ACP · 14+1 · SEMI</span></div>
+                <div class="bars"><div class="bar"><i style="width:55%"></i></div><div class="bar"><i style="width:88%"></i></div><div class="bar"><i style="width:80%"></i></div></div></div>
+              <div class="gun-card mag"><div><b>COLT ANACONDA</b><span>.44 MAGNUM · 6 RDS · PENETRATES</span></div>
+                <div class="bars"><div class="bar"><i style="width:100%"></i></div><div class="bar"><i style="width:30%"></i></div><div class="bar"><i style="width:95%"></i></div></div></div>
+            </div>
+            <div class="load-set" data-set="1" hidden>
+              <div class="gun-card"><div><b>RUGER OLD ARMY</b><span>.44 CAP &amp; BALL · 6 CHAMBERS</span></div>
+                <div class="bars"><div class="bar"><i style="width:72%"></i></div><div class="bar"><i style="width:38%"></i></div><div class="bar"><i style="width:70%"></i></div></div></div>
+              <div class="gun-card mag"><div><b>WINCHESTER MODEL 12</b><span>12 GAUGE · 6+1 PUMP · BUCKSHOT</span></div>
+                <div class="bars"><div class="bar"><i style="width:88%"></i></div><div class="bar"><i style="width:44%"></i></div><div class="bar"><i style="width:55%"></i></div></div></div>
+            </div>
           </div>
           <div class="panel board"><h3><span>GLOBAL KILLBOARD</span><span class="board-shards"></span></h3><ol class="board-list"><li class="board-empty">Loading…</li></ol></div>
         </aside>
@@ -101,6 +118,7 @@ export class Menu {
     `;
     parent.appendChild(this.el);
     this.bg = new ContourFlyover(this.el.querySelector(".menu-bg")!);
+    this.syncLoadout();
 
     const cells = [...this.el.querySelectorAll<HTMLInputElement>(".zip-cell")];
     const form = this.el.querySelector<HTMLFormElement>(".deploy-form")!;
@@ -163,6 +181,15 @@ export class Menu {
         this.el.querySelectorAll(".light-btn").forEach((x) => x.classList.toggle("on", x === b));
       }),
     );
+    this.el.querySelectorAll<HTMLButtonElement>(".load-btn").forEach((b) =>
+      b.addEventListener("click", () => {
+        this.audio.unlock();
+        this.audio.uiTick();
+        this.loadout = Number(b.dataset.load) as LoadoutId;
+        localStorage.setItem("krawk.loadout", String(this.loadout));
+        this.syncLoadout();
+      }),
+    );
     this.el.querySelectorAll<HTMLButtonElement>(".seg-btn[data-size]").forEach((b) =>
       b.addEventListener("click", () => {
         this.audio.unlock();
@@ -188,7 +215,7 @@ export class Menu {
       localStorage.setItem("krawk.callsign", name);
       this.audio.uiDeploy();
       this.bg.boost = 1;
-      onDeploy({ zip: this.validZip, size: this.size, callsign: name, tutorial, lighting: this.lighting });
+      onDeploy({ zip: this.validZip, size: this.size, callsign: name, tutorial, lighting: this.lighting, loadout: tutorial ? 0 : this.loadout });
     };
     form.addEventListener("submit", (e) => {
       e.preventDefault();
@@ -202,6 +229,15 @@ export class Menu {
     else setTimeout(() => cells[0].focus(), 600);
 
     void this.loadSideData();
+  }
+
+  private syncLoadout() {
+    this.el.querySelectorAll(".load-btn").forEach((x) => x.classList.toggle("on", Number((x as HTMLElement).dataset.load) === this.loadout));
+    this.el.querySelectorAll<HTMLElement>(".load-set").forEach((el) => {
+      el.hidden = Number(el.dataset.set) !== this.loadout;
+    });
+    const n = this.el.querySelector(".load-n");
+    if (n) n.textContent = this.loadout === 0 ? "ALPHA" : "BRAVO";
   }
 
   private async onZipChange(cells: HTMLInputElement[], deployBtn: HTMLButtonElement) {

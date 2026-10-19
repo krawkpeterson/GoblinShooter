@@ -225,6 +225,8 @@
   justify-content: space-between;
 }
 .loadout, .board { padding: 22px; }
+.load-seg { margin-bottom: 12px; }
+.load-seg .seg-btn small { display: block; font-size: 9px; letter-spacing: 0.08em; color: var(--mute); }
 .gun-card {
   display: grid;
   grid-template-columns: 1fr auto;
