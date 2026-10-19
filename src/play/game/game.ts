@@ -630,7 +630,7 @@ export class Game {
 
 function weaponTagFor(weapon: string) {
   if (weapon === "anaconda") return ".44 MAG";
-  if (weapon === "ruger") return ".44 BALL";
+  if (weapon === "ruger") return ".44 MAG";
   if (weapon === "winchester") return "12 GAUGE";
   return ".45 ACP";
 }
