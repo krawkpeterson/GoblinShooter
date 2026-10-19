@@ -108,7 +108,6 @@ export function buildCity(world: WorldData, terrain: Terrain, collision: (c: Bui
   const colliders: BuildingCollider[] = [];
 
   world.buildings.forEach((b, idx) => {
-    try {
     const pts = b.footprint;
     if (pts.length < 3) return;
     const r = rng(idx * 7919 + pts.length);
@@ -203,7 +202,9 @@ export function buildCity(world: WorldData, terrain: Terrain, collision: (c: Bui
         const pa = [pts[i][0], top, pts[i][1]], pb = [pts[(i + 1) % pts.length][0], top, pts[(i + 1) % pts.length][1]];
         const e1 = new THREE.Vector3(pb[0] - pa[0], 0, pb[2] - pa[2]);
         const e2 = new THREE.Vector3(apex[0] - pa[0], apex[1] - pa[1], apex[2] - pa[2]);
-        const n = new THREE.Vector3().crossVectors(e1, e2).normalize();
+        const n = new THREE.Vector3().crossVectors(e1, e2);
+        if (n.lengthSq() < 1e-10) n.set(0, 1, 0);
+        else n.normalize();
         if (n.y < 0) pushRoof([pb, pa, apex], n.negate());
         else pushRoof([pa, pb, apex], n);
       }
@@ -218,9 +219,6 @@ export function buildCity(world: WorldData, terrain: Terrain, collision: (c: Bui
     }
     const door = enterable ? doorOnLongest(pts, Math.min(2.25, (top - floorY) * 0.72)) : undefined;
     colliders.push({ poly: pts, base, top, floor: floorY, hollow: enterable, door });
-    } catch {
-      /* skip degenerate OSM footprints so one bad roof cannot freeze load */
-    }
   });
 
   const windowMaterial = new THREE.MeshStandardMaterial({
@@ -305,34 +303,21 @@ function doorOnLongest(pts: Vec2[], height: number) {
     const len = Math.hypot(bx - ax, bz - az);
     if (len > bl) { bl = len; bi = i; }
   }
+  if (bl < 1.8) return undefined;
   const [ax, az] = pts[bi], [bx, bz] = pts[(bi + 1) % pts.length];
   const w = Math.min(1.35, bl * 0.28);
   return { ax, az, bx, bz, t0: 0.5 - w / 2 / bl, t1: 0.5 + w / 2 / bl, height };
 }
 
 function fanRoof(pts: Vec2[], y: number, push: (p: number[][], n: THREE.Vector3) => void) {
-  const contour = pts.map(([x, z]) => new THREE.Vector2(x, z));
-  let faces: number[][] = [];
-  try {
-    faces = THREE.ShapeUtils.triangulateShape(contour, []);
-  } catch {
-    let cx = 0, cz = 0;
-    for (const [x, z] of pts) { cx += x; cz += z; }
-    cx /= pts.length; cz /= pts.length;
-    for (let i = 0; i < pts.length; i++) {
-      const pa = pts[i], pb = pts[(i + 1) % pts.length];
-      const n = new THREE.Vector3(0, 1, 0);
-      push([[pa[0], y, pa[1]], [pb[0], y, pb[1]], [cx, y, cz]], n);
-    }
-    return;
-  }
+  let cx = 0, cz = 0;
+  for (const [x, z] of pts) { cx += x; cz += z; }
+  cx /= pts.length;
+  cz /= pts.length;
   const up = new THREE.Vector3(0, 1, 0);
-  for (const [ia, ib, ic] of faces) {
-    const pa = pts[ia], pb = pts[ib], pc = pts[ic];
-    if (!pa || !pb || !pc) continue;
-    const cy = (pb[1] - pa[1]) * (pc[0] - pa[0]) - (pb[0] - pa[0]) * (pc[1] - pa[1]);
-    const tri = cy >= 0 ? [pa, pb, pc] : [pa, pc, pb];
-    push(tri.map(([x, z]) => [x, y, z]), up);
+  for (let i = 0; i < pts.length; i++) {
+    const pa = pts[i], pb = pts[(i + 1) % pts.length];
+    push([[pa[0], y, pa[1]], [pb[0], y, pb[1]], [cx, y, cz]], up);
   }
 }
 
