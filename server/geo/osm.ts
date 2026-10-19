@@ -3,10 +3,10 @@ import { fetchWithTimeout } from "./http.ts";
 import type { LocalProjection } from "./projection.ts";
 
 const OVERPASS_ENDPOINTS = [
-  "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
-  "https://overpass.kumi.systems/api/interpreter",
   "https://overpass-api.de/api/interpreter",
+  "https://overpass.kumi.systems/api/interpreter",
   "https://overpass.private.coffee/api/interpreter",
+  "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
 ];
 
 interface OsmGeomPoint { lat: number; lon: number }
@@ -33,14 +33,19 @@ async function queryOverpass(query: string, onLog: (m: string) => void): Promise
   for (const url of OVERPASS_ENDPOINTS) {
     const host = new URL(url).host;
     try {
-      const res = await fetchWithTimeout(url, {
+      const body = new URLSearchParams({ data: query }).toString();
+      let res = await fetchWithTimeout(url, {
         method: "POST",
-        timeoutMs: 45000,
+        timeoutMs: 28000,
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({ data: query }).toString(),
+        body,
       });
+      if (!res.ok) {
+        res = await fetchWithTimeout(`${url}?data=${encodeURIComponent(query)}`, { method: "GET", timeoutMs: 28000 });
+      }
       if (!res.ok) throw new Error(`${res.status}`);
       const json = (await res.json()) as { elements: OsmElement[] };
+      if (!Array.isArray(json.elements)) throw new Error("bad overpass payload");
       return { elements: json.elements, host };
     } catch (err) {
       lastErr = err;
@@ -115,9 +120,10 @@ export async function fetchOsm(
   const half = sizeMeters / 2;
   const bb = proj.bbox(half * 1.05);
   const b = `${bb.south.toFixed(6)},${bb.west.toFixed(6)},${bb.north.toFixed(6)},${bb.east.toFixed(6)}`;
-  const query = `[out:json][timeout:40];
+  const query = `[out:json][timeout:25];
 (
   way["building"](${b});
+  way["building:part"](${b});
   way["highway"](${b});
   way["natural"~"^(water|wood|beach|sand|grassland|scrub|heath)$"](${b});
   way["waterway"~"^(riverbank|river|stream|canal)$"](${b});
@@ -166,12 +172,16 @@ out geom qt;`;
     const pts = toPts(el.geometry);
     if (!inside(pts, 20)) continue;
 
-    if (tags.building && pts.length >= 4) {
+    if ((tags.building || tags["building:part"]) && pts.length >= 4) {
+      const ring = cleanRing(pts);
+      if (!ring) continue;
+      const minH = parseFloat(tags.min_height ?? tags["building:min_level"] ?? "");
       buildings.push({
-        footprint: pts.slice(0, -1),
+        footprint: ring,
         height: Math.round(buildingHeight(tags, el.id) * 10) / 10,
-        kind: tags.building,
+        kind: tags.building || tags["building:part"] || "yes",
         name: tags.name,
+        minHeight: Number.isFinite(minH) && minH > 0 ? (tags["building:min_level"] && !tags.min_height ? minH * 3.2 : minH) : 0,
       });
       continue;
     }
@@ -199,6 +209,22 @@ out geom qt;`;
     trees: trees.slice(0, 4000),
     source: `OpenStreetMap via ${host}`,
   };
+}
+
+function cleanRing(pts: Vec2[]): Vec2[] | null {
+  const ring = pts.slice();
+  if (ring.length >= 2) {
+    const a = ring[0], b = ring[ring.length - 1];
+    if (Math.hypot(a[0] - b[0], a[1] - b[1]) < 0.2) ring.pop();
+  }
+  const out: Vec2[] = [];
+  for (const p of ring) {
+    const last = out[out.length - 1];
+    if (!last || Math.hypot(p[0] - last[0], p[1] - last[1]) > 0.18) out.push(p);
+  }
+  if (out.length < 3) return null;
+  if (polyArea(out) < 6) return null;
+  return out;
 }
 
 export function polyArea(poly: Vec2[]): number {
