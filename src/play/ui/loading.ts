@@ -78,9 +78,7 @@ export class Loading {
 
   private tick = () => {
     this.raf = requestAnimationFrame(this.tick);
-    const ceiling = this.target >= 1 ? 1 : Math.min(0.97, this.target + 0.12);
-    this.target = Math.min(ceiling, this.target + 0.00045);
-    this.shown += (this.target - this.shown) * 0.08;
+    this.shown += (this.target - this.shown) * 0.12;
     const pct = Math.min(100, Math.round(this.shown * 100));
     this.el.querySelector(".ld-percent .num")!.textContent = String(pct);
     this.el.querySelector<HTMLElement>(".ld-bar i")!.style.width = `${this.shown * 100}%`;
