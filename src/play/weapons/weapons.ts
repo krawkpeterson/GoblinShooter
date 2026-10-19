@@ -3,7 +3,13 @@ import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import type { AudioEngine, GunKind } from "../audio/audio.ts";
 import type { Input } from "../engine/input.ts";
 import type { Player } from "../player/player.ts";
-import { buildAnaconda, buildHands, buildM1911, type AnacondaModel, type M1911Model } from "./models.ts";
+import { buildAnaconda, buildHands, buildM1911, buildRugerOldArmy, buildWinchester12, type AnacondaModel, type M1911Model, type WinchesterModel } from "./models.ts";
+
+export type LoadoutId = 0 | 1;
+export const LOADOUTS: { id: LoadoutId; guns: [GunKind, GunKind]; title: string }[] = [
+  { id: 0, guns: ["m1911", "anaconda"], title: "ALPHA" },
+  { id: 1, guns: ["ruger", "winchester"], title: "BRAVO" },
+];
 
 export interface WeaponDef {
   id: GunKind;
@@ -22,6 +28,7 @@ export interface WeaponDef {
   recoil: { pitch: number; yaw: number; trauma: number; fov: number; back: number; rot: number };
   adsFov: number;
   range: number;
+  pellets?: number;
 }
 
 export const WEAPONS: Record<GunKind, WeaponDef> = {
@@ -61,6 +68,43 @@ export const WEAPONS: Record<GunKind, WeaponDef> = {
     adsFov: 48,
     range: 260,
   },
+  ruger: {
+    id: "ruger",
+    name: "RUGER OLD ARMY",
+    sub: ".44 CAP & BALL · 6 CHAMBERS",
+    mag: 6,
+    reserve: 36,
+    damage: 95,
+    headMult: 2.4,
+    interval: 0.52,
+    spreadHip: 0.02,
+    spreadAds: 0.004,
+    reload: 3.2,
+    reloadEmpty: 3.2,
+    penetration: 2,
+    recoil: { pitch: 0.09, yaw: 0.028, trauma: 0.42, fov: 5.5, back: 0.09, rot: 0.7 },
+    adsFov: 50,
+    range: 90,
+  },
+  winchester: {
+    id: "winchester",
+    name: "WINCHESTER MODEL 12",
+    sub: "12 GAUGE · 6+1 PUMP",
+    mag: 6,
+    reserve: 30,
+    damage: 22,
+    headMult: 1.6,
+    interval: 0.62,
+    spreadHip: 0.055,
+    spreadAds: 0.032,
+    reload: 2.4,
+    reloadEmpty: 2.8,
+    penetration: 1,
+    recoil: { pitch: 0.08, yaw: 0.02, trauma: 0.38, fov: 4, back: 0.09, rot: 0.55 },
+    adsFov: 62,
+    range: 48,
+    pellets: 8,
+  },
 };
 
 interface Spring { v: number; vel: number }
@@ -84,6 +128,7 @@ export interface FireEvent {
   def: WeaponDef;
   origin: THREE.Vector3;
   dir: THREE.Vector3;
+  extraDirs: THREE.Vector3[];
   muzzleWorld: THREE.Vector3;
 }
 
@@ -97,8 +142,10 @@ export class WeaponSystem {
   private nextFireAt = 0;
   private reloadWasEmpty = false;
   private pendingSwap = -1;
-  private m1911: M1911Model;
-  private anaconda: AnacondaModel;
+  private m1911?: M1911Model;
+  private anaconda?: AnacondaModel;
+  private ruger?: AnacondaModel;
+  private winchester?: WinchesterModel;
   private flash: THREE.Mesh;
   private flashLife = 0;
   private kickZ: Spring = { v: 0, vel: 0 };
@@ -130,24 +177,45 @@ export class WeaponSystem {
     private readonly viewCamera: THREE.PerspectiveCamera,
     private readonly worldCamera: THREE.PerspectiveCamera,
     private readonly audio: AudioEngine,
+    loadout: LoadoutId = 0,
   ) {
     const pmrem = new THREE.PMREMGenerator(renderer);
     viewScene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
     viewScene.environmentIntensity = 0.9;
 
-    this.m1911 = buildM1911();
-    this.anaconda = buildAnaconda();
-    const hands1 = buildHands(), hands2 = buildHands();
-    this.m1911.root.add(hands1.right, hands1.left);
-    this.anaconda.root.add(hands2.right, hands2.left);
-    hands2.right.position.set(0, 0, 0.008);
-    hands2.left.position.set(0, -0.002, 0.008);
+    const ids = LOADOUTS[loadout]?.guns ?? LOADOUTS[0].guns;
+    const roots = new Map<GunKind, THREE.Group>();
+    for (const id of ids) {
+      const hands = buildHands();
+      if (id === "m1911") {
+        this.m1911 = buildM1911();
+        this.m1911.root.add(hands.right, hands.left);
+        roots.set(id, this.m1911.root);
+      } else if (id === "anaconda") {
+        this.anaconda = buildAnaconda();
+        this.anaconda.root.add(hands.right, hands.left);
+        hands.right.position.set(0, 0, 0.008);
+        hands.left.position.set(0, -0.002, 0.008);
+        roots.set(id, this.anaconda.root);
+      } else if (id === "ruger") {
+        this.ruger = buildRugerOldArmy();
+        this.ruger.root.add(hands.right, hands.left);
+        hands.right.position.set(0, 0, 0.008);
+        hands.left.position.set(0, -0.002, 0.008);
+        roots.set(id, this.ruger.root);
+      } else {
+        this.winchester = buildWinchester12();
+        this.winchester.root.add(hands.right, hands.left);
+        hands.left.position.set(-0.01, -0.01, -0.04);
+        roots.set(id, this.winchester.root);
+      }
+    }
 
-    this.guns = (["m1911", "anaconda"] as GunKind[]).map((id) => ({
+    this.guns = ids.map((id) => ({
       def: WEAPONS[id],
       ammo: WEAPONS[id].mag,
       reserve: WEAPONS[id].reserve,
-      root: id === "m1911" ? this.m1911.root : this.anaconda.root,
+      root: roots.get(id)!,
       shotsFired: 0,
     }));
     for (const g of this.guns) {
@@ -208,7 +276,13 @@ export class WeaponSystem {
   }
 
   addReserve(id: GunKind, n: number) {
-    const g = this.guns.find((x) => x.def.id === id)!;
+    const g = this.guns.find((x) => x.def.id === id);
+    if (!g) return;
+    g.reserve = Math.min(g.reserve + n, 90);
+  }
+
+  addSecondaryReserve(n: number) {
+    const g = this.guns[1] ?? this.guns[0];
     g.reserve = Math.min(g.reserve + n, 90);
   }
 
@@ -311,31 +385,55 @@ export class WeaponSystem {
     const r = g.def.recoil;
     this.kickZ.vel += r.back * 60;
     this.kickRot.vel += r.rot * 40;
-    this.flashLife = g.def.id === "anaconda" ? 0.06 : 0.04;
+    this.flashLife = this.isRevolver(g.def.id) || g.def.id === "winchester" ? 0.06 : 0.04;
     this.hammerBack = 1;
 
-    if (g.def.id === "m1911") {
+    if (g.def.id === "m1911" && this.m1911) {
       this.slideBack = 1;
       if (g.ammo === 0) this.slideLocked = true;
       const ej = new THREE.Vector3();
       this.m1911.ejection.getWorldPosition(ej);
       this.onEjectShell?.(this.toWorld(ej));
-    } else {
+    } else if (this.isRevolver(g.def.id)) {
       this.cylTarget += Math.PI / 3;
+    } else if (this.winchester) {
+      this.slideBack = 1;
+      const ej = new THREE.Vector3();
+      this.winchester.ejection.getWorldPosition(ej);
+      this.onEjectShell?.(this.toWorld(ej));
     }
 
     this.audio.gunshot(g.def.id);
 
     const cam = this.worldCamera;
-    const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion);
-    const spread = this.spread;
     const right = new THREE.Vector3(1, 0, 0).applyQuaternion(cam.quaternion);
     const up = new THREE.Vector3(0, 1, 0).applyQuaternion(cam.quaternion);
-    const a = Math.random() * Math.PI * 2, m = Math.sqrt(Math.random()) * spread;
-    dir.addScaledVector(right, Math.cos(a) * m).addScaledVector(up, Math.sin(a) * m).normalize();
+    const aim = (spread: number) => {
+      const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion);
+      const a = Math.random() * Math.PI * 2, m = Math.sqrt(Math.random()) * spread;
+      return dir.addScaledVector(right, Math.cos(a) * m).addScaledVector(up, Math.sin(a) * m).normalize();
+    };
+    const dir = aim(this.spread);
+    const extraDirs: THREE.Vector3[] = [];
+    const pellets = g.def.pellets ?? 1;
+    for (let i = 1; i < pellets; i++) extraDirs.push(aim(this.spread * 1.15));
     const mz = new THREE.Vector3();
-    (g.def.id === "m1911" ? this.m1911.muzzle : this.anaconda.muzzle).getWorldPosition(mz);
-    this.onFire?.({ def: g.def, origin: cam.position.clone(), dir, muzzleWorld: this.toWorld(mz) });
+    this.muzzleOf(g.def.id).getWorldPosition(mz);
+    this.onFire?.({ def: g.def, origin: cam.position.clone(), dir, extraDirs, muzzleWorld: this.toWorld(mz) });
+  }
+
+  private isRevolver(id: GunKind) {
+    return id === "anaconda" || id === "ruger";
+  }
+
+  private revolverOf(id: GunKind) {
+    return id === "ruger" ? this.ruger : this.anaconda;
+  }
+
+  private muzzleOf(id: GunKind) {
+    if (id === "m1911") return this.m1911!.muzzle;
+    if (id === "winchester") return this.winchester!.muzzle;
+    return this.revolverOf(id)!.muzzle;
   }
 
   /** Viewmodel-space point -> approximate world-space point near the real camera. */
@@ -346,16 +444,18 @@ export class WeaponSystem {
 
   private animate(dt: number, input: Input, player: Player) {
     const g = this.gun;
-    const isRevolver = g.def.id === "anaconda";
-    const model = isRevolver ? this.anaconda : this.m1911;
+    const isRevolver = this.isRevolver(g.def.id);
+    const shotgun = g.def.id === "winchester";
+    const revolver = isRevolver ? this.revolverOf(g.def.id)! : null;
+    const model = shotgun ? this.winchester! : isRevolver ? revolver! : this.m1911!;
 
     spring(this.kickZ, 0, 260, 18, dt);
     spring(this.kickRot, 0, 220, 16, dt);
     this.swayX += (-input.mouseDX * 0.00025 - this.swayX) * (1 - Math.exp(-dt * 10));
     this.swayY += (input.mouseDY * 0.00025 - this.swayY) * (1 - Math.exp(-dt * 10));
 
-    const hip = new THREE.Vector3(0.13, -0.135, -0.34);
-    const ads = new THREE.Vector3(0, -model.sightHeight, isRevolver ? -0.3 : -0.27);
+    const hip = new THREE.Vector3(shotgun ? 0.16 : 0.13, shotgun ? -0.16 : -0.135, shotgun ? -0.42 : -0.34);
+    const ads = new THREE.Vector3(0, -model.sightHeight, shotgun ? -0.38 : isRevolver ? -0.3 : -0.27);
     const pos = hip.clone().lerp(ads, this.adsT);
     const rot = new THREE.Euler(0, 0, 0);
     const adsDamp = 1 - this.adsT * 0.85;
@@ -385,21 +485,27 @@ export class WeaponSystem {
       rot.x -= (1 - easeOut(t)) * 0.6;
     } else if (this.state === "reload") {
       if (isRevolver) this.animateRevolverReload(t, pos, rot);
+      else if (shotgun) this.animateShotgunReload(t, pos, rot);
       else this.animatePistolReload(t, pos, rot);
     }
 
     g.root.position.copy(pos);
     g.root.rotation.copy(rot);
 
-    if (!isRevolver) {
+    if (g.def.id === "m1911" && this.m1911) {
       this.slideBack = Math.max(0, this.slideBack - dt * 22);
       const back = this.slideLocked && this.state !== "reload" ? 1 : Math.sin(Math.min(1, this.slideBack) * Math.PI * 0.5);
       if (this.state !== "reload" || t < 0.78 || !this.reloadWasEmpty) this.m1911.slide.position.z = back * 0.032;
       this.m1911.hammer.rotation.x = -Math.max(this.hammerBack, back) * 0.5;
-    } else {
+    } else if (isRevolver && revolver) {
       this.cylAngle += (this.cylTarget - this.cylAngle) * (1 - Math.exp(-dt * 30));
-      this.anaconda.cylinder.rotation.z = this.cylAngle;
-      this.anaconda.hammer.rotation.x = this.hammerBack * 0.15;
+      revolver.cylinder.rotation.z = this.cylAngle;
+      revolver.hammer.rotation.x = this.hammerBack * 0.15;
+    } else if (this.winchester) {
+      this.slideBack = Math.max(0, this.slideBack - dt * 8);
+      const pump = this.state === "idle" ? Math.sin(Math.min(1, this.slideBack) * Math.PI) : 0;
+      this.winchester.pump.position.z = -0.16 + pump * 0.05;
+      this.winchester.hammer.rotation.x = this.hammerBack * 0.2;
     }
     this.hammerBack = Math.max(0, this.hammerBack - dt * 8);
 
@@ -410,7 +516,7 @@ export class WeaponSystem {
       this.holder.worldToLocal(mz);
       this.flash.position.copy(mz);
       this.flash.rotation.z = Math.random() * Math.PI;
-      const s = (isRevolver ? 2.2 : 1.3) * (0.8 + Math.random() * 0.4);
+      const s = (isRevolver || shotgun ? 2.2 : 1.3) * (0.8 + Math.random() * 0.4);
       this.flash.scale.setScalar(s);
       this.flash.visible = true;
     } else {
@@ -420,6 +526,7 @@ export class WeaponSystem {
 
   private animatePistolReload(t: number, pos: THREE.Vector3, rot: THREE.Euler) {
     const m = this.m1911;
+    if (!m) return;
     const tilt = bell(t, 0.05, 0.9);
     rot.z -= tilt * 0.55;
     rot.x += tilt * 0.25;
@@ -440,8 +547,20 @@ export class WeaponSystem {
     }
   }
 
+  private animateShotgunReload(t: number, pos: THREE.Vector3, rot: THREE.Euler) {
+    const tilt = bell(t, 0.06, 0.88);
+    rot.x += tilt * 0.35;
+    pos.y -= tilt * 0.04;
+    pos.z += tilt * 0.03;
+    if (this.winchester) this.winchester.pump.position.z = -0.16 + bell(t, 0.2, 0.75) * 0.06;
+    if (t > 0.35 && t < 0.42 && !this.ejected) {
+      this.ejected = true;
+      this.kickRot.vel += 3;
+    }
+  }
+
   private animateRevolverReload(t: number, pos: THREE.Vector3, rot: THREE.Euler) {
-    const a = this.anaconda;
+    const a = this.revolverOf(this.gun.def.id)!;
     const tilt = bell(t, 0.04, 0.9);
     rot.z += tilt * 0.7;
     pos.x -= tilt * 0.08;
