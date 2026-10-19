@@ -29,6 +29,8 @@ export interface Building {
   height: number;
   kind: string;
   name?: string;
+  /** Meters above local ground; OSM min_height / building:min_level. */
+  minHeight?: number;
 }
 
 export type RoadKind = "motorway" | "primary" | "secondary" | "residential" | "service" | "path";
@@ -131,4 +133,4 @@ export interface LeaderboardEntry extends ScoreSubmission {
 
 export const WORLD_SIZES = [600, 1000, 1600] as const;
 export type WorldSize = (typeof WORLD_SIZES)[number];
-export const WORLD_DATA_VERSION = 4;
+export const WORLD_DATA_VERSION = 6;
