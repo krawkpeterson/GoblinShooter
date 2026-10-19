@@ -3,7 +3,7 @@ import type { Vec2, WorldData } from "../../../shared/types.ts";
 import type { AudioEngine } from "../audio/audio.ts";
 import type { Input } from "../engine/input.ts";
 import { Renderer } from "../engine/renderer.ts";
-import type { GoblinKind, HostileKind } from "../enemies/goblinModel.ts";
+import type { HostileKind } from "../enemies/goblinModel.ts";
 import { GoblinManager, type Goblin } from "../enemies/goblins.ts";
 import { Effects } from "../fx/effects.ts";
 import { Player } from "../player/player.ts";
