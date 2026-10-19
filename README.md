@@ -2,7 +2,7 @@
 
 **Your zip code. Their graveyard.** A browser FPS where you type any US zip code and fight goblins on the real ground: real elevation, real streets, real buildings and live weather, all pulled from public data when you hit deploy.
 
-**Play:** https://julianblock.github.io/Krawk-game/
+**Play:** https://krawkpeterson.github.io/GoblinShooter/
 
 You get two guns, a .45 ACP double-stack 1911 and a .44 Magnum Colt Anaconda, and a drill sergeant who roasts you through boot camp.
 
@@ -11,8 +11,8 @@ You get two guns, a .45 ACP double-stack 1911 and a .44 Magnum Colt Anaconda, an
 Requires **Node 22.13+** (it uses the built-in `node:sqlite`).
 
 ```bash
-git clone https://github.com/Julianblock/Krawk-game.git
-cd Krawk-game
+git clone https://github.com/krawkpeterson/GoblinShooter.git
+cd GoblinShooter
 npm install
 npm run dev
 ```

@@ -1,4 +1,4 @@
-export const USER_AGENT = "KrawkGame/0.1 (+https://github.com/Julianblock/Krawk-game)";
+export const USER_AGENT = "KrawkGame/0.1 (+https://github.com/krawkpeterson/GoblinShooter)";
 
 export async function fetchWithTimeout(
   url: string,

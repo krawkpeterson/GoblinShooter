@@ -48,7 +48,7 @@ public/               Static files (favicon, shots/ screenshots)
 
 - **`server/world.ts` and everything it imports must stay browser-safe.** The Pages build bundles it into the client. No `node:*` imports, no `pngjs`, and no `process` unless you guard it with `typeof process === "undefined"`. Node-only code goes in `server/index.ts` or `server/db/`. For example, PNG decoding uses the browser by default, and `server/index.ts` injects pngjs with `setPngDecoder`.
 - **Bump `WORLD_DATA_VERSION` in `shared/types.ts`** whenever you change the shape or contents of `WorldData`, such as building heights or new fields. Old cached worlds (in SQLite and the browser Cache API) are then ignored instead of crashing the client.
-- **Use relative asset paths** (`shots/x.jpg`, `play.html`, not `/shots/x.jpg`). The site is served from `/Krawk-game/`, and vite uses `base: "./"`.
+- **Use relative asset paths** (`shots/x.jpg`, `play.html`, not `/shots/x.jpg`). The site is served from `/GoblinShooter/`, and vite uses `base: "./"`.
 - **Public APIs need to stay CORS-friendly.** Browser mode calls Zippopotam, AWS tiles, Overpass and Open-Meteo directly. If you add a data source, check it works with `fetch` from a browser page. Overpass mirrors are tried in order in `server/geo/osm.ts`, and only some of them send CORS headers.
 - **Secrets never go in `VITE_*` variables.** Anything prefixed `VITE_` is baked into the public bundle.
 - **The hero only carries the 1911 and the Anaconda.** It's a design pillar, not an oversight.
