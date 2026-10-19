@@ -133,4 +133,4 @@ export interface LeaderboardEntry extends ScoreSubmission {
 
 export const WORLD_SIZES = [600, 1000, 1600] as const;
 export type WorldSize = (typeof WORLD_SIZES)[number];
-export const WORLD_DATA_VERSION = 6;
+export const WORLD_DATA_VERSION = 7;
