@@ -15,6 +15,8 @@ interface ZippopotamResponse {
 interface NominatimHit {
   lat: string;
   lon: string;
+  type?: string;
+  addresstype?: string;
   address?: {
     postcode?: string;
     city?: string;
@@ -62,6 +64,7 @@ const STATE_ABBR: Record<string, string> = Object.fromEntries(
 /** Last-resort centroids for zips Zippopotam sometimes ghosts. */
 const KNOWN: Record<string, Place> = {
   "95993": { zip: "95993", name: "Yuba City", state: "California", stateAbbr: "CA", lat: 39.1237, lon: -121.6611 },
+  "86438": { zip: "86438", name: "Yucca", state: "Arizona", stateAbbr: "AZ", lat: 34.872667, lon: -114.149858 },
 };
 
 export function normalizeZip(raw: string): string | null {
@@ -78,7 +81,9 @@ export async function geocodeZip(raw: string): Promise<Place> {
   for (const lookup of [fromZippopotam, fromNominatim, fromPhoton]) {
     try {
       const place = await lookup(zip);
-      if (place && Number.isFinite(place.lat) && Number.isFinite(place.lon)) return place;
+      if (place && Number.isFinite(place.lat) && Number.isFinite(place.lon)) {
+        return await snapToSettlement(place);
+      }
     } catch (err) {
       attempts.push(err);
     }
@@ -161,4 +166,26 @@ function stateAbbrFrom(state?: string, iso?: string) {
 function isNotFound(err: unknown) {
   const s = String(err);
   return s.includes("404") || s.includes("doesn't exist");
+}
+
+/** Rural zips often geocode to an empty polygon centroid miles from the named town. */
+async function snapToSettlement(place: Place): Promise<Place> {
+  const pinned = KNOWN[place.zip];
+  if (pinned) return { ...place, lat: pinned.lat, lon: pinned.lon, name: pinned.name };
+  try {
+    const q = encodeURIComponent(`${place.name}, ${place.state}, USA`);
+    const hits = await fetchJson<NominatimHit[]>(
+      `https://nominatim.openstreetmap.org/search?q=${q}&countrycodes=us&format=jsonv2&limit=5`,
+      { timeoutMs: 8000 },
+    );
+    const hit = hits.find((h) => /^(city|town|village|hamlet|suburb)$/.test(h.addresstype ?? h.type ?? "")) ?? hits[0];
+    if (!hit) return place;
+    const lat = Number(hit.lat), lon = Number(hit.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return place;
+    const dLat = lat - place.lat, dLon = lon - place.lon;
+    if (dLat * dLat + dLon * dLon > 2.25) return place;
+    return { ...place, lat, lon };
+  } catch {
+    return place;
+  }
 }
