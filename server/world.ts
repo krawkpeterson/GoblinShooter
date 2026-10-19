@@ -44,12 +44,7 @@ export async function buildWorld(
         source: "flat fallback",
       };
     }),
-    Promise.race([
-      fetchOsm(proj, size, log),
-      new Promise<OsmFeatures>((_, rej) =>
-        setTimeout(() => rej(new Error("OpenStreetMap survey timed out")), 22000),
-      ),
-    ])
+    fetchOsm(proj, size, log)
       .then((o) => {
         stage("osm", "Street-level survey complete", 0.6, `${o.buildings.length} buildings · ${o.roads.length} roads`);
         return o;
