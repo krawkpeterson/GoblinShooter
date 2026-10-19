@@ -44,7 +44,12 @@ export async function buildWorld(
         source: "flat fallback",
       };
     }),
-    fetchOsm(proj, size, log)
+    Promise.race([
+      fetchOsm(proj, size, log),
+      new Promise<OsmFeatures>((_, rej) =>
+        setTimeout(() => rej(new Error("OpenStreetMap survey timed out")), 22000),
+      ),
+    ])
       .then((o) => {
         stage("osm", "Street-level survey complete", 0.6, `${o.buildings.length} buildings · ${o.roads.length} roads`);
         return o;
@@ -112,6 +117,13 @@ export async function buildWorld(
     for (let a = 0; a < 16 && heroCandidates.length < 1; a++) {
       const x = Math.cos((a / 16) * Math.PI * 2) * r, z = Math.sin((a / 16) * Math.PI * 2) * r;
       if (!blocked(x, z) && (osm.roads.length === 0 || nearRoad(x, z, 1))) heroCandidates.push([Math.round(x), Math.round(z)]);
+    }
+  }
+  if (!heroCandidates.length) heroCandidates.push([0, 0]);
+  if (spawnCandidates.length < 6) {
+    for (let a = 0; a < 8; a++) {
+      const ang = (a / 8) * Math.PI * 2;
+      spawnCandidates.push([Math.round(Math.cos(ang) * half * 0.62), Math.round(Math.sin(ang) * half * 0.62)]);
     }
   }
 
