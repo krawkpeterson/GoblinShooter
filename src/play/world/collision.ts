@@ -7,6 +7,9 @@ export interface BuildingCollider {
   poly: Vec2[];
   base: number;
   top: number;
+  floor?: number;
+  hollow?: boolean;
+  door?: { ax: number; az: number; bx: number; bz: number; t0: number; t1: number; height: number };
 }
 
 export interface CircleCollider {
@@ -50,11 +53,31 @@ export class CollisionWorld {
     return this.buildingGrid.hit(x, z);
   }
 
+  /** True if a ground agent should treat this cell as a wall. Interiors of hollow buildings stay open. */
+  blocksWalk(x: number, z: number): boolean {
+    const b = this.buildingGrid.hit(x, z);
+    if (!b) return false;
+    if (!b.hollow) return true;
+    const poly = b.poly;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const d = distToSegment(x, z, poly[j][0], poly[j][1], poly[i][0], poly[i][1]);
+      if (d.dist < 0.55 && !this.doorGap(b, poly[j][0], poly[j][1], poly[i][0], poly[i][1], d.t, (b.floor ?? b.base) + 1)) return true;
+    }
+    return false;
+  }
+
   /** Highest walkable surface under (x,z) that the feet can reach from feetY. */
   groundAt(x: number, z: number, feetY = Infinity): number {
     let g = this.terrain.heightAt(x, z);
     const b = this.buildingGrid.hit(x, z);
-    if (b && feetY >= b.top - 0.75) g = Math.max(g, b.top);
+    if (!b) return g;
+    if (b.hollow) {
+      const floor = b.floor ?? g;
+      if (feetY >= b.top - 0.7) return Math.max(g, b.top);
+      if (feetY >= floor - 0.4) return Math.max(g, floor);
+      return g;
+    }
+    if (feetY >= b.top - 0.75) g = Math.max(g, b.top);
     return g;
   }
 
@@ -66,6 +89,22 @@ export class CollisionWorld {
       for (const b of this.nearbyBuildings(pos.x, pos.z, radius)) {
         if (pos.y >= b.top - 0.75 || pos.y + height < b.base) continue;
         const poly = b.poly;
+        if (b.hollow) {
+          const thick = 0.28 + radius;
+          for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+            const ax = poly[j][0], az = poly[j][1], bx = poly[i][0], bz = poly[i][1];
+            const d = distToSegment(pos.x, pos.z, ax, az, bx, bz);
+            if (d.dist >= thick) continue;
+            if (this.doorGap(b, ax, az, bx, bz, d.t, pos.y)) continue;
+            const nx = pos.x - d.cx, nz = pos.z - d.cz;
+            const len = Math.hypot(nx, nz) || 1;
+            const push = thick - d.dist;
+            pos.x += (nx / len) * push;
+            pos.z += (nz / len) * push;
+            moved = hit = true;
+          }
+          continue;
+        }
         const inside = pointInPolygon(pos.x, pos.z, poly);
         let best = { dist: Infinity, cx: 0, cz: 0 };
         for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
@@ -120,8 +159,26 @@ export class CollisionWorld {
       const x = ax + (bx - ax) * t, z = az + (bz - az) * t, y = ay + (by - ay) * t;
       if (this.terrain.heightAt(x, z) > y + 0.3) return true;
       const b = this.buildingGrid.hit(x, z);
-      if (b && y < b.top) return true;
+      if (!b || y >= b.top) continue;
+      if (!b.hollow) return true;
+      const thick = 0.32;
+      const poly = b.poly;
+      for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        const d = distToSegment(x, z, poly[j][0], poly[j][1], poly[i][0], poly[i][1]);
+        if (d.dist < thick && !this.doorGap(b, poly[j][0], poly[j][1], poly[i][0], poly[i][1], d.t, y)) return true;
+      }
     }
     return false;
+  }
+
+  private doorGap(b: BuildingCollider, ax: number, az: number, bx: number, bz: number, t: number, y: number) {
+    const d = b.door;
+    if (!d || y > (b.floor ?? b.base) + d.height) return false;
+    const same =
+      (Math.hypot(ax - d.ax, az - d.az) < 0.05 && Math.hypot(bx - d.bx, bz - d.bz) < 0.05) ||
+      (Math.hypot(ax - d.bx, az - d.bz) < 0.05 && Math.hypot(bx - d.ax, bz - d.az) < 0.05);
+    if (!same) return false;
+    const u = Math.hypot(ax - d.ax, az - d.az) < 0.05 ? t : 1 - t;
+    return u > d.t0 && u < d.t1;
   }
 }
