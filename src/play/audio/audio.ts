@@ -121,71 +121,128 @@ export class AudioEngine {
     return p;
   }
 
-  /** BOPOOOOOOM. */
+  /** Sharp report + muzzle blast. Kept short so it reads as a gun, not thunder. */
   gunshot(kind: GunKind) {
     const ctx = this.ctx;
     const t = ctx.currentTime + 0.001;
-    const big = kind === "anaconda" || kind === "winchester";
-    const cap = kind === "ruger";
     this.lastShot = t;
+    const spec = {
+      m1911: { crack: 4200, body: 1400, sub: 165, dur: 0.16, vol: 0.95, mech: 2600, echo: 0.12 },
+      anaconda: { crack: 2800, body: 780, sub: 88, dur: 0.28, vol: 1.15, mech: 900, echo: 0.18 },
+      ruger: { crack: 2600, body: 720, sub: 82, dur: 0.26, vol: 1.12, mech: 820, echo: 0.17 },
+      winchester: { crack: 1900, body: 620, sub: 70, dur: 0.34, vol: 1.2, mech: 480, echo: 0.2 },
+    }[kind];
+
     const out = ctx.createGain();
-    out.gain.value = big ? 1.25 : cap ? 1.1 : 1;
+    out.gain.value = spec.vol;
     out.connect(this.sfx);
-    out.connect(this.reverbSend);
-    out.connect(this.echoSend);
+    const room = ctx.createGain();
+    room.gain.value = 0.22;
+    room.connect(this.reverbSend);
+    out.connect(room);
 
-    // B: supersonic crack.
+    const primer = ctx.createOscillator();
+    primer.type = "square";
+    primer.frequency.setValueAtTime(spec.crack, t);
+    primer.frequency.exponentialRampToValueAtTime(spec.crack * 0.35, t + 0.012);
+    const primerG = ctx.createGain();
+    this.env(primerG, t, 0.55, 0.0002, 0.014);
+    primer.connect(primerG).connect(out);
+    primer.start(t);
+    primer.stop(t + 0.03);
+
     const crack = this.noiseSrc();
-    const crackHp = ctx.createBiquadFilter();
-    crackHp.type = "highpass";
-    crackHp.frequency.value = cap ? 1400 : 1800;
+    const crackBp = ctx.createBiquadFilter();
+    crackBp.type = "bandpass";
+    crackBp.frequency.value = spec.crack;
+    crackBp.Q.value = 0.7;
     const crackG = ctx.createGain();
-    this.env(crackG, t, big ? 1.6 : 1.3, 0.0008, big ? 0.07 : 0.05);
-    crack.connect(crackHp).connect(crackG).connect(out);
+    this.env(crackG, t, 1.8, 0.0003, 0.045);
+    crack.connect(crackBp).connect(crackG).connect(out);
     crack.start(t, Math.random() * 3);
-    crack.stop(t + 0.2);
+    crack.stop(t + 0.08);
 
-    // O: chest thump.
-    const body = this.noiseSrc();
-    const bodyLp = ctx.createBiquadFilter();
-    bodyLp.type = "lowpass";
-    bodyLp.frequency.setValueAtTime(big ? 2600 : 3200, t);
-    bodyLp.frequency.exponentialRampToValueAtTime(220, t + (big ? 0.35 : 0.22));
-    const bodyG = ctx.createGain();
-    this.env(bodyG, t, big ? 2.2 : 1.6, 0.002, big ? 0.38 : 0.24);
-    body.connect(bodyLp).connect(bodyG).connect(out);
-    body.start(t, Math.random() * 3);
-    body.stop(t + 0.8);
+    const blast = this.noiseSrc();
+    const blastLp = ctx.createBiquadFilter();
+    blastLp.type = "lowpass";
+    blastLp.frequency.setValueAtTime(spec.body, t);
+    blastLp.frequency.exponentialRampToValueAtTime(180, t + spec.dur);
+    const blastG = ctx.createGain();
+    this.env(blastG, t, 1.7, 0.001, spec.dur);
+    blast.connect(blastLp).connect(blastG).connect(out);
+    blast.start(t, Math.random() * 3);
+    blast.stop(t + spec.dur + 0.05);
 
-    // P: distorted sub drop.
     const sub = ctx.createOscillator();
     sub.type = "sine";
-    sub.frequency.setValueAtTime(big ? 150 : 190, t);
-    sub.frequency.exponentialRampToValueAtTime(big ? 28 : 42, t + (big ? 0.9 : 0.45));
+    sub.frequency.setValueAtTime(spec.sub, t);
+    sub.frequency.exponentialRampToValueAtTime(Math.max(40, spec.sub * 0.45), t + spec.dur * 0.7);
     const subG = ctx.createGain();
-    this.env(subG, t, big ? 2.4 : 1.7, 0.004, big ? 1.2 : 0.6);
-    sub.connect(this.distortion(big ? 6 : 4)).connect(subG).connect(out);
+    this.env(subG, t, 1.35, 0.002, spec.dur * 0.85);
+    sub.connect(subG).connect(out);
     sub.start(t);
-    sub.stop(t + 1.6);
+    sub.stop(t + spec.dur);
 
-    // OOOOOOM: rolling thunder tail.
-    const tail = this.noiseSrc();
-    const tailLp = ctx.createBiquadFilter();
-    tailLp.type = "lowpass";
-    tailLp.Q.value = 2;
-    tailLp.frequency.setValueAtTime(big ? 1100 : 1400, t);
-    tailLp.frequency.exponentialRampToValueAtTime(big ? 70 : 110, t + (big ? 3.4 : 2.0));
-    const tailG = ctx.createGain();
-    tailG.gain.setValueAtTime(0.0001, t);
-    tailG.gain.exponentialRampToValueAtTime(big ? 1.4 : 0.8, t + 0.03);
-    tailG.gain.exponentialRampToValueAtTime(big ? 0.5 : 0.25, t + 0.5);
-    tailG.gain.exponentialRampToValueAtTime(0.0001, t + (big ? 4.0 : 2.4));
-    tail.connect(tailLp).connect(tailG).connect(out);
-    tail.start(t, Math.random() * 3);
-    tail.stop(t + 4.2);
+    const slap = this.noiseSrc();
+    const slapBp = ctx.createBiquadFilter();
+    slapBp.type = "bandpass";
+    slapBp.frequency.value = spec.body * 0.7;
+    slapBp.Q.value = 1.1;
+    const slapG = ctx.createGain();
+    slapG.gain.setValueAtTime(0.0001, t);
+    slapG.gain.setValueAtTime(0.0001, t + spec.echo);
+    slapG.gain.exponentialRampToValueAtTime(0.35, t + spec.echo + 0.004);
+    slapG.gain.exponentialRampToValueAtTime(0.0001, t + spec.echo + 0.09);
+    slap.connect(slapBp).connect(slapG).connect(out);
+    slap.start(t + spec.echo, Math.random() * 3);
+    slap.stop(t + spec.echo + 0.12);
 
-    // Mechanism: slide slap or hammer fall.
-    this.click(t + (big ? 0 : 0.035), big ? 900 : 2400, big ? 0.25 : 0.35, 0.012);
+    this.click(t + 0.012, spec.mech, 0.22, 0.01);
+  }
+
+  /** Wet burst when a goblin pops. */
+  gore(x = 0, distance = 8) {
+    const ctx = this.ctx;
+    const t = ctx.currentTime;
+    const vol = Math.max(0.2, 0.95 * (1 - distance / 70));
+    const out = ctx.createGain();
+    out.gain.value = vol;
+    out.connect(this.pan(x)).connect(this.sfx);
+    out.connect(this.reverbSend);
+
+    const pop = this.noiseSrc();
+    const popBp = ctx.createBiquadFilter();
+    popBp.type = "bandpass";
+    popBp.frequency.value = 700 + Math.random() * 400;
+    popBp.Q.value = 0.6;
+    const popG = ctx.createGain();
+    this.env(popG, t, 1.8, 0.0004, 0.09);
+    pop.connect(popBp).connect(this.distortion(2.5)).connect(popG).connect(out);
+    pop.start(t, Math.random() * 3);
+    pop.stop(t + 0.14);
+
+    const wet = this.noiseSrc();
+    const wetLp = ctx.createBiquadFilter();
+    wetLp.type = "lowpass";
+    wetLp.frequency.setValueAtTime(900, t);
+    wetLp.frequency.exponentialRampToValueAtTime(120, t + 0.35);
+    const wetG = ctx.createGain();
+    this.env(wetG, t, 1.4, 0.002, 0.32);
+    wet.connect(wetLp).connect(wetG).connect(out);
+    wet.start(t, Math.random() * 3);
+    wet.stop(t + 0.4);
+
+    const squelch = ctx.createOscillator();
+    squelch.type = "sawtooth";
+    squelch.frequency.setValueAtTime(180 + Math.random() * 80, t);
+    squelch.frequency.exponentialRampToValueAtTime(40, t + 0.22);
+    const sqG = ctx.createGain();
+    this.env(sqG, t, 0.7, 0.004, 0.22);
+    squelch.connect(sqG).connect(out);
+    squelch.start(t);
+    squelch.stop(t + 0.28);
+
+    this.metal(t + 0.02, [240, 380], 0.06, 0.12);
   }
 
   explosion(distance = 10) {
