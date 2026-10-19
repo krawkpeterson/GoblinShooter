@@ -5,6 +5,7 @@ import type { LocalProjection } from "./projection.ts";
 const OVERPASS_ENDPOINTS = [
   "https://overpass.kumi.systems/api/interpreter",
   "https://overpass.private.coffee/api/interpreter",
+  "https://overpass.openstreetmap.fr/api/interpreter",
   "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
   "https://overpass-api.de/api/interpreter",
 ];
@@ -138,15 +139,32 @@ export async function fetchOsm(
 );
 out geom qt;`;
 
-  const [buildingsHit, restHit] = await Promise.all([
-    queryOverpass(buildingsQuery, onLog, 45000),
-    queryOverpass(restQuery, onLog, 30000).catch((err): { elements: OsmElement[]; host: string } => {
-      onLog(`Streets/landcover failed (${(err as Error).message}); buildings still inbound`);
-      return { elements: [], host: "none" };
-    }),
-  ]);
-  const elements = [...buildingsHit.elements, ...restHit.elements];
-  const host = buildingsHit.host;
+  let elements: OsmElement[] = [];
+  let host = "none";
+  try {
+    const [buildingsHit, restHit] = await Promise.all([
+      queryOverpass(buildingsQuery, onLog, 45000),
+      queryOverpass(restQuery, onLog, 30000).catch((err): { elements: OsmElement[]; host: string } => {
+        onLog(`Streets/landcover failed (${(err as Error).message}); buildings still inbound`);
+        return { elements: [], host: "none" };
+      }),
+    ]);
+    elements = [...buildingsHit.elements, ...restHit.elements];
+    host = buildingsHit.host;
+  } catch (err) {
+    onLog(`Overpass failed (${(err as Error).message}); pulling the OSM map API`);
+  }
+  if (!elements.some((e) => e.tags?.building && (e.geometry?.length ?? 0) >= 3)) {
+    onLog("No building footprints yet — fetching OSM map export");
+    try {
+      const extra = await queryOsmMap(bb, onLog);
+      elements = [...elements, ...extra];
+      host = host === "none" ? "api.openstreetmap.org" : `${host} + map API`;
+    } catch (err) {
+      onLog(`OSM map API failed (${(err as Error).message})`);
+      if (!elements.length) throw err as Error;
+    }
+  }
   onLog(`OpenStreetMap returned ${elements.length.toLocaleString()} raw elements from ${host}`);
 
   const toPts = (g: OsmGeomPoint[]): Vec2[] =>
@@ -220,6 +238,72 @@ out geom qt;`;
     trees: trees.slice(0, 4000),
     source: `OpenStreetMap via ${host}`,
   };
+}
+
+async function queryOsmMap(
+  bb: { south: number; west: number; north: number; east: number },
+  onLog: (m: string) => void,
+): Promise<OsmElement[]> {
+  const url =
+    `https://api.openstreetmap.org/api/0.6/map?bbox=${bb.west.toFixed(6)},${bb.south.toFixed(6)},${bb.east.toFixed(6)},${bb.north.toFixed(6)}`;
+  const res = await fetchWithTimeout(url, { timeoutMs: 60000 });
+  if (!res.ok) throw new Error(`OSM map API ${res.status}`);
+  const xml = await res.text();
+  const elements = parseOsmXml(xml);
+  onLog(`OSM map API returned ${elements.length.toLocaleString()} elements`);
+  return elements;
+}
+
+function xmlAttrs(tag: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  const re = /([:\w]+)="([^"]*)"/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(tag))) out[m[1]] = m[2];
+  return out;
+}
+
+function xmlTags(body: string): Record<string, string> {
+  const tags: Record<string, string> = {};
+  const re = /<tag k="([^"]*)" v="([^"]*)"\/>/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(body))) {
+    tags[m[1]] = m[2]
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"');
+  }
+  return tags;
+}
+
+function parseOsmXml(xml: string): OsmElement[] {
+  const nodes = new Map<number, OsmGeomPoint>();
+  const elements: OsmElement[] = [];
+  const nodeRe = /<node\s([^>]+)(?:\/>|>([\s\S]*?)<\/node>)/g;
+  let m: RegExpExecArray | null;
+  while ((m = nodeRe.exec(xml))) {
+    const a = xmlAttrs(m[1]);
+    const id = Number(a.id);
+    const lat = Number(a.lat), lon = Number(a.lon);
+    if (!Number.isFinite(id) || !Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+    nodes.set(id, { lat, lon });
+    const tags = m[2] ? xmlTags(m[2]) : {};
+    if (tags.natural === "tree") elements.push({ type: "node", id, lat, lon, tags });
+  }
+  const wayRe = /<way\s([^>]+)>([\s\S]*?)<\/way>/g;
+  while ((m = wayRe.exec(xml))) {
+    const a = xmlAttrs(m[1]);
+    const body = m[2];
+    const geometry: OsmGeomPoint[] = [];
+    const nd = /<nd ref="(\d+)"\s*\/>/g;
+    let n: RegExpExecArray | null;
+    while ((n = nd.exec(body))) {
+      const p = nodes.get(Number(n[1]));
+      if (p) geometry.push(p);
+    }
+    elements.push({ type: "way", id: Number(a.id), tags: xmlTags(body), geometry });
+  }
+  return elements;
 }
 
 function cleanRing(pts: Vec2[]): Vec2[] | null {
