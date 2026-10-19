@@ -28,7 +28,11 @@ export interface OsmFeatures {
   source: string;
 }
 
-async function queryOverpass(query: string, onLog: (m: string) => void): Promise<{ elements: OsmElement[]; host: string }> {
+async function queryOverpass(
+  query: string,
+  onLog: (m: string) => void,
+  timeoutMs = 40000,
+): Promise<{ elements: OsmElement[]; host: string }> {
   let lastErr: unknown;
   for (const url of OVERPASS_ENDPOINTS) {
     const host = new URL(url).host;
@@ -36,12 +40,12 @@ async function queryOverpass(query: string, onLog: (m: string) => void): Promise
       const body = new URLSearchParams({ data: query }).toString();
       let res = await fetchWithTimeout(url, {
         method: "POST",
-        timeoutMs: 14000,
+        timeoutMs,
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body,
       });
       if (!res.ok) {
-        res = await fetchWithTimeout(`${url}?data=${encodeURIComponent(query)}`, { method: "GET", timeoutMs: 14000 });
+        res = await fetchWithTimeout(`${url}?data=${encodeURIComponent(query)}`, { method: "GET", timeoutMs });
       }
       if (!res.ok) throw new Error(`${res.status}`);
       const json = (await res.json()) as { elements: OsmElement[] };
@@ -120,10 +124,9 @@ export async function fetchOsm(
   const half = sizeMeters / 2;
   const bb = proj.bbox(half * 1.05);
   const b = `${bb.south.toFixed(6)},${bb.west.toFixed(6)},${bb.north.toFixed(6)},${bb.east.toFixed(6)}`;
-  const query = `[out:json][timeout:25];
+  const buildingsQuery = `[out:json][timeout:45];way["building"](${b});out geom qt;`;
+  const restQuery = `[out:json][timeout:30];
 (
-  way["building"](${b});
-  way["building:part"](${b});
   way["highway"](${b});
   way["natural"~"^(water|wood|beach|sand|grassland|scrub|heath)$"](${b});
   way["waterway"~"^(riverbank|river|stream|canal)$"](${b});
@@ -135,13 +138,21 @@ export async function fetchOsm(
 );
 out geom qt;`;
 
-  const { elements, host } = await queryOverpass(query, onLog);
+  const [buildingsHit, restHit] = await Promise.all([
+    queryOverpass(buildingsQuery, onLog, 45000),
+    queryOverpass(restQuery, onLog, 30000).catch((err): { elements: OsmElement[]; host: string } => {
+      onLog(`Streets/landcover failed (${(err as Error).message}); buildings still inbound`);
+      return { elements: [], host: "none" };
+    }),
+  ]);
+  const elements = [...buildingsHit.elements, ...restHit.elements];
+  const host = buildingsHit.host;
   onLog(`OpenStreetMap returned ${elements.length.toLocaleString()} raw elements from ${host}`);
 
   const toPts = (g: OsmGeomPoint[]): Vec2[] =>
     g.map((p) => {
       const [x, z] = proj.toLocal(p.lat, p.lon);
-      return [Math.round(x * 10) / 10, Math.round(z * 10) / 10] as Vec2;
+      return [Math.round(x * 100) / 100, Math.round(z * 100) / 100] as Vec2;
     });
   const inside = (pts: Vec2[], margin = 0) =>
     pts.some(([x, z]) => Math.abs(x) <= half + margin && Math.abs(z) <= half + margin);
@@ -172,14 +183,14 @@ out geom qt;`;
     const pts = toPts(el.geometry);
     if (!inside(pts, 20)) continue;
 
-    if ((tags.building || tags["building:part"]) && pts.length >= 4) {
+    if (tags.building && pts.length >= 3) {
       const ring = cleanRing(pts);
       if (!ring) continue;
       const minH = parseFloat(tags.min_height ?? tags["building:min_level"] ?? "");
       buildings.push({
         footprint: ring,
         height: Math.round(buildingHeight(tags, el.id) * 10) / 10,
-        kind: tags.building || tags["building:part"] || "yes",
+        kind: tags.building || "yes",
         name: tags.name,
         minHeight: Number.isFinite(minH) && minH > 0 ? (tags["building:min_level"] && !tags.min_height ? minH * 3.2 : minH) : 0,
       });
@@ -220,10 +231,10 @@ function cleanRing(pts: Vec2[]): Vec2[] | null {
   const out: Vec2[] = [];
   for (const p of ring) {
     const last = out[out.length - 1];
-    if (!last || Math.hypot(p[0] - last[0], p[1] - last[1]) > 0.18) out.push(p);
+    if (!last || Math.hypot(p[0] - last[0], p[1] - last[1]) > 0.04) out.push(p);
   }
   if (out.length < 3) return null;
-  if (polyArea(out) < 6) return null;
+  if (polyArea(out) < 3) return null;
   return out;
 }
 
