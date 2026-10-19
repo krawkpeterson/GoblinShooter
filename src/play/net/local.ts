@@ -43,7 +43,8 @@ export function localStreamWorld(zip: string, size: WorldSize, onProgress: (p: W
     const { buildWorld } = await import("../../../server/world.ts");
     try {
       const world = await buildWorld(zip, size, emit);
-      void storeWorld(zip, size, world);
+      if (world.stats.buildings > 0 || world.stats.roadKm > 0.05) void storeWorld(zip, size, world);
+      else emit({ type: "log", message: "Survey came back empty — not caching this drop" });
       emit({ type: "done", world });
       return world;
     } catch (err) {
