@@ -1,4 +1,4 @@
-export type GunKind = "m1911" | "anaconda";
+export type GunKind = "m1911" | "anaconda" | "ruger" | "winchester";
 
 /** Everything is synthesized at runtime: no audio files ship with the game. */
 export class AudioEngine {
@@ -125,10 +125,11 @@ export class AudioEngine {
   gunshot(kind: GunKind) {
     const ctx = this.ctx;
     const t = ctx.currentTime + 0.001;
-    const big = kind === "anaconda";
+    const big = kind === "anaconda" || kind === "winchester";
+    const cap = kind === "ruger";
     this.lastShot = t;
     const out = ctx.createGain();
-    out.gain.value = big ? 1.25 : 1;
+    out.gain.value = big ? 1.25 : cap ? 1.1 : 1;
     out.connect(this.sfx);
     out.connect(this.reverbSend);
     out.connect(this.echoSend);
@@ -137,7 +138,7 @@ export class AudioEngine {
     const crack = this.noiseSrc();
     const crackHp = ctx.createBiquadFilter();
     crackHp.type = "highpass";
-    crackHp.frequency.value = 1800;
+    crackHp.frequency.value = cap ? 1400 : 1800;
     const crackG = ctx.createGain();
     this.env(crackG, t, big ? 1.6 : 1.3, 0.0008, big ? 0.07 : 0.05);
     crack.connect(crackHp).connect(crackG).connect(out);
@@ -259,6 +260,11 @@ export class AudioEngine {
         this.click(t + 1.45, 1600, 0.5, 0.03);
         this.metal(t + 1.47, [2400, 3600], 0.06, 0.1); // slide release
       }
+    } else if (kind === "winchester") {
+      this.click(t + 0.08, 700, 0.35, 0.04);
+      this.metal(t + 0.2, [480, 900], 0.07, 0.18);
+      for (let i = 0; i < (empty ? 6 : 3); i++) this.click(t + 0.45 + i * 0.22, 1400, 0.28, 0.03);
+      this.click(t + 1.9, 500, 0.5, 0.05);
     } else {
       this.click(t + 0.1, 700, 0.35, 0.04); // cylinder latch
       this.metal(t + 0.3, [600, 1200], 0.08, 0.3);
