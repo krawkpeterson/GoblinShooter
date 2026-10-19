@@ -273,9 +273,9 @@ export class Tutorial {
     }
   }
 
-  notifyKill(g: Goblin, head: boolean, weapon: "m1911" | "anaconda") {
+  notifyKill(g: Goblin, head: boolean, weapon: string) {
     if (this.done) return;
-    if (weapon === "anaconda" && this.i === 8) {
+    if ((weapon === "anaconda" || weapon === "ruger") && this.i === 8) {
       this.magnumKill = true;
       this.hud.sarge("THAT is the sound of competence. Unfortunately, it came from the gun, not you.", this.shame);
     }

@@ -8,7 +8,7 @@ import { GoblinManager, type Goblin } from "../enemies/goblins.ts";
 import { Effects } from "../fx/effects.ts";
 import { Player } from "../player/player.ts";
 import { Hud } from "../ui/hud.ts";
-import { WeaponSystem, type FireEvent } from "../weapons/weapons.ts";
+import { WeaponSystem, type FireEvent, type LoadoutId } from "../weapons/weapons.ts";
 import { buildCity, type Car, type CityBuild } from "../world/city.ts";
 import { CollisionWorld } from "../world/collision.ts";
 import { SkySystem } from "../world/sky.ts";
@@ -26,7 +26,7 @@ export interface RunStats {
   hits: number;
   wave: number;
   durationSec: number;
-  shotsByWeapon: { m1911: number; anaconda: number };
+  shotsByWeapon: { m1911: number; anaconda: number; ruger: number; winchester: number };
   carsDestroyed: number;
   bestMulti: number;
   tutorialShame: number | null;
@@ -81,7 +81,7 @@ export class Game {
   photoMode = false;
   readonly stats: RunStats = {
     score: 0, kills: 0, headshots: 0, shots: 0, hits: 0, wave: 0, durationSec: 0,
-    shotsByWeapon: { m1911: 0, anaconda: 0 }, carsDestroyed: 0, bestMulti: 0, tutorialShame: null,
+    shotsByWeapon: { m1911: 0, anaconda: 0, ruger: 0, winchester: 0 }, carsDestroyed: 0, bestMulti: 0, tutorialShame: null,
   };
   onEnd?: (victory: boolean, stats: RunStats) => void;
   onPauseRequest?: () => void;
@@ -93,6 +93,7 @@ export class Game {
     readonly audio: AudioEngine,
     uiRoot: HTMLElement,
     readonly withTutorial: boolean,
+    loadout: LoadoutId = 0,
   ) {
     this.terrain = new Terrain(world);
     this.scene.add(this.terrain.mesh, this.terrain.skirt);
@@ -119,7 +120,7 @@ export class Game {
     this.player.yaw = Math.atan2(hx, hz);
 
     this.renderer = new Renderer(gl, this.scene, this.camera, this.viewScene, this.viewCamera);
-    this.weapons = new WeaponSystem(this.viewScene, gl, this.viewCamera, this.camera, audio);
+    this.weapons = new WeaponSystem(this.viewScene, gl, this.viewCamera, this.camera, audio, loadout);
     this.weapons.setLighting(this.sky.sun.color, this.sky.sun.intensity);
     this.weapons.onFire = (e) => this.handleFire(e);
     this.weapons.onEjectShell = (p) => {
@@ -245,7 +246,7 @@ export class Game {
   private updateHud() {
     const w = this.weapons;
     const g = w.gun;
-    this.hud.setAmmo(g.def.name, g.def.sub, g.ammo, g.def.mag, g.reserve, g.def.id === "anaconda", w.reloadProgress);
+    this.hud.setAmmo(g.def.name, g.def.sub, g.ammo, g.def.mag, g.reserve, g.def.id === "anaconda" || g.def.id === "ruger", w.reloadProgress);
     this.hud.setHealth(this.player.health, this.player.maxHealth);
     this.hud.setScore(this.stats.score, this.combo);
     this.hud.setEnemies(this.goblins.alive.length + this.spawnQueue.length);
@@ -261,7 +262,7 @@ export class Game {
   }
 
   private handleFire(e: FireEvent) {
-    const big = e.def.id === "anaconda";
+    const big = e.def.id === "anaconda" || e.def.id === "winchester";
     this.stats.shots++;
     this.stats.shotsByWeapon[e.def.id]++;
     this.hud.boom(big);
@@ -272,57 +273,61 @@ export class Game {
     this.flashV = big ? 0.12 : 0.05;
     this.chromaV = big ? 1 : 0.25;
 
-    this.raycaster.set(e.origin, e.dir);
-    this.raycaster.far = e.def.range;
-    const worldHit = this.raycaster.intersectObjects(this.rayTargets, false)[0];
-    let stopDist = worldHit ? worldHit.distance : e.def.range;
-    const carHit = this.city.cars.raycast(e.origin, e.dir, stopDist);
-    if (carHit) stopDist = carHit.dist;
-
-    const hits = this.goblins.raycast(e.origin, e.dir, stopDist);
-    let damage = e.def.damage;
-    let pierced = 0;
-    let killsThisShot = 0;
     let anyHit = false;
-    let endPoint = e.origin.clone().addScaledVector(e.dir, stopDist);
-    const seen = new Set<Goblin>();
-    for (const h of hits) {
-      if (seen.has(h.goblin)) continue;
-      seen.add(h.goblin);
-      if (pierced >= e.def.penetration) break;
-      anyHit = true;
-      const falloff = h.dist > 60 ? Math.max(0.6, 1 - (h.dist - 60) / 200) : 1;
-      const dmg = damage * falloff * (h.head ? e.def.headMult : 1);
-      const killed = this.goblins.damage(h.goblin, dmg, e.dir, h.head, big);
-      if (h.goblin.faction === "geezer") this.fx.blood(h.point, e.dir.clone().negate().lerp(e.dir, 0.7), killed ? 1.3 : 0.7, h.goblin.pos.y);
-      else this.fx.goo(h.point, e.dir.clone().negate().lerp(e.dir, 0.7), killed ? 1.3 : 0.7, h.goblin.pos.y);
-      this.audio.impact("flesh", 0);
-      this.audio.hitmarker(h.head);
-      this.hud.hitmarker(killed ? "kill" : h.head ? "head" : "hit");
-      if (killed) {
-        killsThisShot++;
-        this.onGoblinKilled(h.goblin, h.head, e.def.id, h.dist, killsThisShot);
-      }
-      endPoint = h.point;
-      pierced++;
-      damage *= 0.7;
-    }
-    if (pierced < e.def.penetration || hits.length === 0) {
-      endPoint = e.origin.clone().addScaledVector(e.dir, stopDist);
-      if (carHit && carHit.dist <= stopDist + 0.01) {
-        this.fx.impact(endPoint, e.dir.clone().negate(), "hard", big);
-        this.audio.impact("hard");
+    let killsThisShot = 0;
+    const dirs = [e.dir, ...e.extraDirs];
+    for (let i = 0; i < dirs.length; i++) {
+      const dir = dirs[i];
+      this.raycaster.set(e.origin, dir);
+      this.raycaster.far = e.def.range;
+      const worldHit = this.raycaster.intersectObjects(this.rayTargets, false)[0];
+      let stopDist = worldHit ? worldHit.distance : e.def.range;
+      const carHit = this.city.cars.raycast(e.origin, dir, stopDist);
+      if (carHit) stopDist = carHit.dist;
+
+      const hits = this.goblins.raycast(e.origin, dir, stopDist);
+      let damage = e.def.damage;
+      let pierced = 0;
+      let endPoint = e.origin.clone().addScaledVector(dir, stopDist);
+      const seen = new Set<Goblin>();
+      for (const h of hits) {
+        if (seen.has(h.goblin)) continue;
+        seen.add(h.goblin);
+        if (pierced >= e.def.penetration) break;
         anyHit = true;
-        if (this.city.cars.damage(carHit.car, e.def.damage)) this.explodeCar(carHit.car);
-      } else if (worldHit) {
-        const n = worldHit.face ? worldHit.face.normal.clone() : new THREE.Vector3(0, 1, 0);
-        const surface = worldHit.object === this.terrain.mesh ? "dirt" : "hard";
-        this.fx.impact(worldHit.point, n, surface, big);
-        this.audio.impact(surface === "dirt" ? "dirt" : "hard");
+        const falloff = h.dist > 60 ? Math.max(0.6, 1 - (h.dist - 60) / 200) : 1;
+        const dmg = damage * falloff * (h.head ? e.def.headMult : 1);
+        const killed = this.goblins.damage(h.goblin, dmg, dir, h.head, big);
+        if (h.goblin.faction === "geezer") this.fx.blood(h.point, dir.clone().negate().lerp(dir, 0.7), killed ? 1.3 : 0.7, h.goblin.pos.y);
+        else this.fx.goo(h.point, dir.clone().negate().lerp(dir, 0.7), killed ? 1.3 : 0.7, h.goblin.pos.y);
+        this.audio.impact("flesh", 0);
+        this.audio.hitmarker(h.head);
+        this.hud.hitmarker(killed ? "kill" : h.head ? "head" : "hit");
+        if (killed) {
+          killsThisShot++;
+          this.onGoblinKilled(h.goblin, h.head, e.def.id, h.dist, killsThisShot);
+        }
+        endPoint = h.point;
+        pierced++;
+        damage *= 0.7;
       }
+      if (pierced < e.def.penetration || hits.length === 0) {
+        endPoint = e.origin.clone().addScaledVector(dir, stopDist);
+        if (carHit && carHit.dist <= stopDist + 0.01) {
+          this.fx.impact(endPoint, dir.clone().negate(), "hard", big);
+          this.audio.impact("hard");
+          anyHit = true;
+          if (this.city.cars.damage(carHit.car, e.def.damage)) this.explodeCar(carHit.car);
+        } else if (worldHit) {
+          const n = worldHit.face ? worldHit.face.normal.clone() : new THREE.Vector3(0, 1, 0);
+          const surface = worldHit.object === this.terrain.mesh ? "dirt" : "hard";
+          this.fx.impact(worldHit.point, n, surface, big);
+          this.audio.impact(surface === "dirt" ? "dirt" : "hard");
+        }
+      }
+      if (i === 0 || anyHit) this.fx.tracer(e.muzzleWorld, endPoint, big && i === 0);
     }
     if (anyHit) this.stats.hits++;
-    this.fx.tracer(e.muzzleWorld, endPoint, big);
     this.tutorial?.notifyShot(anyHit);
   }
 
@@ -362,10 +367,10 @@ export class Game {
     if (dist < radius * 0.7 && this.phase !== "tutorial") this.hurtPlayer(35 * (1 - dist / (radius * 0.7)), pos);
   }
 
-  private onGoblinKilled(g: Goblin, head: boolean, weapon: "m1911" | "anaconda", dist: number, killsThisShot: number, explosive = false, rival = false) {
+  private onGoblinKilled(g: Goblin, head: boolean, weapon: FireEvent["def"]["id"], dist: number, killsThisShot: number, explosive = false, rival = false) {
     if (!rival) this.tutorial?.notifyKill(g, head, weapon);
     if (g.dummy) {
-      this.hud.killfeed(`${head ? "HEADSHOT" : "DUMMY"} <em>${weapon === "anaconda" ? ".44 MAG" : ".45 ACP"}</em>`, head);
+      this.hud.killfeed(`${head ? "HEADSHOT" : "DUMMY"} <em>${weaponTagFor(weapon)}</em>`, head);
       return;
     }
     this.stats.kills++;
@@ -388,7 +393,7 @@ export class Game {
     pts = Math.round(pts * (rival ? 1 : this.combo));
     this.stats.score += pts;
 
-    const weaponTag = rival ? ".22 CIVIL WAR" : explosive ? "CAR BOMB" : weapon === "anaconda" ? ".44 MAG" : ".45 ACP";
+    const weaponTag = rival ? ".22 CIVIL WAR" : explosive ? "CAR BOMB" : weaponTagFor(weapon);
     this.hud.killfeed(`${g.def.name} <em>${weaponTag}${head ? " ✛" : ""}</em>+${pts}`, head);
 
     if (rival) {
@@ -414,7 +419,7 @@ export class Game {
       this.slowmo(0.6);
     } else if (head) {
       this.hud.announce("HEADSHOT", `+${pts}`, "gold");
-      if (weapon === "anaconda" && (g.kind === "brute" || g.kind === "king")) this.slowmo(0.5);
+      if ((weapon === "anaconda" || weapon === "ruger") && (g.kind === "brute" || g.kind === "king")) this.slowmo(0.5);
     }
 
     if (g.kind === "king") {
@@ -440,8 +445,9 @@ export class Game {
     } else {
       const g = this.weapons.guns[1];
       if (g.reserve >= 90) return false;
-      this.weapons.addReserve("anaconda", 6);
-      this.hud.killfeed("+6 <em>.44 MAGNUM</em>", false);
+      this.weapons.addSecondaryReserve(6);
+      const tag = this.weapons.guns[1]?.def.id === "winchester" ? "12 GAUGE" : ".44 MAGNUM";
+      this.hud.killfeed(`+6 <em>${tag}</em>`, false);
     }
     this.audio.click(undefined, 1600, 0.3, 0.04);
     this.audio.sting(0);
@@ -481,7 +487,7 @@ export class Game {
     this.phase = "intermission";
     this.phaseT = 0;
     this.player.health = this.player.maxHealth;
-    if (this.wave > 0) this.weapons.addReserve("anaconda", 12);
+    if (this.wave > 0) this.weapons.addSecondaryReserve(12);
   }
 
   private updatePhase(dt: number) {
@@ -620,4 +626,11 @@ export class Game {
   debugFire() {
     this.input.firePressed = true;
   }
+}
+
+function weaponTagFor(weapon: string) {
+  if (weapon === "anaconda") return ".44 MAG";
+  if (weapon === "ruger") return ".44 BALL";
+  if (weapon === "winchester") return "12 GAUGE";
+  return ".45 ACP";
 }
