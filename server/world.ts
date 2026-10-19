@@ -33,6 +33,16 @@ export async function buildWorld(
     elevationGrid(proj, size, resolution, log).then((t) => {
       stage("terrain", "Elevation model decoded", 0.4, `${t.resolution}² samples · ${Math.round(t.maxElevation - t.minElevation)}m relief`);
       return t;
+    }).catch((err) => {
+      log(`Elevation pipeline exploded (${(err as Error).message}); using flat pad`);
+      return {
+        resolution,
+        heights: Array.from({ length: resolution * resolution }, () => 0),
+        minElevation: 0,
+        maxElevation: 1,
+        metersPerSample: size / (resolution - 1),
+        source: "flat fallback",
+      };
     }),
     fetchOsm(proj, size, log)
       .then((o) => {
