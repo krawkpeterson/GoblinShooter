@@ -59,14 +59,15 @@ async function deploy(req: DeployRequest) {
   try {
     const world = await loading.run();
     lastWorld = world;
+    launch(world, req);
     loading.el.classList.add("fade-out");
     setTimeout(() => {
       loading?.destroy();
       loading = null;
     }, 600);
-    launch(world, req);
   } catch (err) {
-    loading.showError((err as Error).message, () => {
+    console.error(err);
+    loading.showError((err as Error).message || "Battlefield failed to assemble", () => {
       loading?.destroy();
       loading = null;
       void deploy(req);
@@ -79,14 +80,14 @@ function launch(world: WorldData, req: DeployRequest) {
   gl ??= Renderer.createWebGL(canvas);
   canvas.style.visibility = "visible";
   const lit = req.lighting === "live" ? world : { ...world, director: { ...world.director, timeOfDay: LIGHTING_HOURS[req.lighting] } };
-  const g = new Game(lit, gl, input, audio, ui, req.tutorial);
+  const g = new Game(lit, gl, input, audio, ui, req.tutorial, req.loadout);
   game = g;
   g.hud.show(false);
   g.onEnd = (victory, stats) => {
     if (game !== g) return;
     pause?.destroy();
     pause = null;
-    const weaponMostUsed = stats.shotsByWeapon.anaconda > stats.shotsByWeapon.m1911 ? "anaconda" : "m1911";
+    const weaponMostUsed = mostUsedWeapon(stats.shotsByWeapon);
     if (stats.tutorialShame !== null) void upsertPlayer(req.callsign, stats.tutorialShame);
     const submission = submitScore({
       playerId: playerId(),
@@ -161,5 +162,10 @@ window.__krawk = {
     return res.json();
   },
 };
+
+function mostUsedWeapon(shots: Record<string, number>): "m1911" | "anaconda" {
+  const id = Object.entries(shots).sort((a, b) => b[1] - a[1])[0]?.[0];
+  return id === "anaconda" || id === "ruger" ? "anaconda" : "m1911";
+}
 
 showMenu();
