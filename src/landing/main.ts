@@ -108,7 +108,7 @@ for (const form of $$<HTMLFormElement>(".zip-launch")) {
       field.classList.add("ok");
       place.textContent = `${p.name.toUpperCase()}, ${p.stateAbbr}`;
     } else {
-      place.textContent = "NOT A US ZIP";
+      place.textContent = "COULDN'T LOCK — RETRY";
     }
   });
   form.addEventListener("submit", (e) => {

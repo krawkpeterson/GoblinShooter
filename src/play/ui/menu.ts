@@ -18,6 +18,7 @@ export const LIGHTING_HOURS: Record<Exclude<Lighting, "live">, number> = { noon:
 const LIGHTINGS: [Lighting, string][] = [["live", "LIVE"], ["noon", "NOON"], ["golden", "GOLDEN"], ["night", "NIGHT"]];
 
 const QUICK = [
+  ["95993", "Yuba City"],
   ["90210", "Beverly Hills"],
   ["10001", "Manhattan"],
   ["94133", "San Francisco"],
@@ -222,7 +223,7 @@ export class Menu {
     if (seq !== this.lookupSeq) return;
     if (!p) {
       preview.classList.add("bad");
-      place.textContent = `${zip} isn't a real zip. Even goblins won't live there.`;
+      place.textContent = `${zip} didn't lock. Satellite blinked — try it again.`;
       coords.textContent = "";
       return;
     }
