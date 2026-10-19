@@ -52,7 +52,7 @@ export async function terrariumGrid(
   resolution: number,
   onLog: (msg: string) => void,
 ): Promise<TerrainGrid> {
-  const zoom = sizeMeters <= 1000 ? 15 : 14;
+  const zoom = sizeMeters <= 600 ? 16 : sizeMeters <= 1000 ? 15 : 14;
   const half = sizeMeters / 2;
   const bb = proj.bbox(half);
   const tl = lonLatToTile(bb.west, bb.north, zoom);
@@ -96,6 +96,8 @@ export async function terrariumGrid(
       raw[j * resolution + i] = bilinear(t.x, t.y);
     }
   }
+  fillHoles(raw, resolution);
+  smoothHeights(raw, resolution);
   return normalize(raw, resolution, step, `AWS Terrarium z${zoom}`);
 }
 
@@ -139,6 +141,41 @@ export async function openMeteoGrid(
     }
   }
   return normalize(raw, resolution, sizeMeters / (resolution - 1), "Open-Meteo Copernicus GLO-90");
+}
+
+function smoothHeights(raw: Float64Array, n: number) {
+  const next = new Float64Array(raw);
+  for (let j = 1; j < n - 1; j++) {
+    for (let i = 1; i < n - 1; i++) {
+      const k = j * n + i;
+      next[k] = (raw[k] * 4 + raw[k - 1] + raw[k + 1] + raw[k - n] + raw[k + n]) / 8;
+    }
+  }
+  raw.set(next);
+}
+
+function fillHoles(raw: Float64Array, n: number) {
+  for (let pass = 0; pass < 4; pass++) {
+    let missing = 0;
+    for (let j = 0; j < n; j++) {
+      for (let i = 0; i < n; i++) {
+        const k = j * n + i;
+        if (Number.isFinite(raw[k])) continue;
+        missing++;
+        let s = 0, c = 0;
+        for (const [di, dj] of [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, 1], [-1, 1], [1, -1]]) {
+          const ii = i + di, jj = j + dj;
+          if (ii < 0 || jj < 0 || ii >= n || jj >= n) continue;
+          const v = raw[jj * n + ii];
+          if (!Number.isFinite(v)) continue;
+          s += v;
+          c++;
+        }
+        if (c) raw[k] = s / c;
+      }
+    }
+    if (!missing) break;
+  }
 }
 
 function normalize(raw: Float64Array, resolution: number, step: number, source: string): TerrainGrid {
