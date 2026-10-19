@@ -1,6 +1,7 @@
 import type { Area, Building, Road, RoadKind, Vec2 } from "../../shared/types.ts";
 import { fetchWithTimeout } from "./http.ts";
 import type { LocalProjection } from "./projection.ts";
+import { fetchMapTiles } from "./tiles.ts";
 
 const OVERPASS_ENDPOINTS = [
   "https://overpass.kumi.systems/api/interpreter",
@@ -140,6 +141,14 @@ export async function fetchOsm(
   node["natural"="tree"](${b});
 );
 out geom qt;`;
+
+  try {
+    const tiled = await fetchMapTiles(proj, sizeMeters, onLog);
+    if (tiled.buildings.length > 0 || tiled.roads.length > 0) return tiled;
+    onLog("Vector tiles had no streets or buildings; trying Overpass");
+  } catch (err) {
+    onLog(`Vector tiles failed (${(err as Error).message}); trying Overpass`);
+  }
 
   onLog("Surveying streets and buildings (Overpass + OSM map export in parallel)");
   const [overB, overR, mapEls] = await Promise.all([
