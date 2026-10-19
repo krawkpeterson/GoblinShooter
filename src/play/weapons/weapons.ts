@@ -3,7 +3,7 @@ import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import type { AudioEngine, GunKind } from "../audio/audio.ts";
 import type { Input } from "../engine/input.ts";
 import type { Player } from "../player/player.ts";
-import { buildAnaconda, buildHands, buildM1911, buildRugerOldArmy, buildWinchester12, type AnacondaModel, type M1911Model, type WinchesterModel } from "./models.ts";
+import { buildAnaconda, buildHands, buildM1911, buildRugerRedhawk, buildWinchester12, type AnacondaModel, type M1911Model, type WinchesterModel } from "./models.ts";
 
 export type LoadoutId = 0 | 1;
 export const LOADOUTS: { id: LoadoutId; guns: [GunKind, GunKind]; title: string }[] = [
@@ -70,21 +70,21 @@ export const WEAPONS: Record<GunKind, WeaponDef> = {
   },
   ruger: {
     id: "ruger",
-    name: "RUGER OLD ARMY",
-    sub: ".44 CAP & BALL · 6 CHAMBERS",
+    name: "RUGER REDHAWK",
+    sub: ".44 MAGNUM · 6 RDS · DA/SA",
     mag: 6,
     reserve: 36,
-    damage: 95,
-    headMult: 2.4,
-    interval: 0.52,
-    spreadHip: 0.02,
-    spreadAds: 0.004,
-    reload: 3.2,
-    reloadEmpty: 3.2,
-    penetration: 2,
-    recoil: { pitch: 0.09, yaw: 0.028, trauma: 0.42, fov: 5.5, back: 0.09, rot: 0.7 },
+    damage: 145,
+    headMult: 2.5,
+    interval: 0.48,
+    spreadHip: 0.016,
+    spreadAds: 0.002,
+    reload: 2.8,
+    reloadEmpty: 2.8,
+    penetration: 3,
+    recoil: { pitch: 0.11, yaw: 0.028, trauma: 0.46, fov: 6, back: 0.1, rot: 0.78 },
     adsFov: 50,
-    range: 90,
+    range: 220,
   },
   winchester: {
     id: "winchester",
@@ -198,7 +198,7 @@ export class WeaponSystem {
         hands.left.position.set(0, -0.002, 0.008);
         roots.set(id, this.anaconda.root);
       } else if (id === "ruger") {
-        this.ruger = buildRugerOldArmy();
+        this.ruger = buildRugerRedhawk();
         this.ruger.root.add(hands.right, hands.left);
         hands.right.position.set(0, 0, 0.008);
         hands.left.position.set(0, -0.002, 0.008);
