@@ -37,14 +37,15 @@ export function streamWorld(
 }
 
 export async function lookupZip(zip: string): Promise<Place | null> {
-  if (STATIC) return localLookupZip(zip);
-  try {
-    const res = await fetch(`/api/zip/${zip}`);
-    if (!res.ok) return null;
-    return (await res.json()) as Place;
-  } catch {
-    return null;
+  if (!STATIC) {
+    try {
+      const res = await fetch(`/api/zip/${zip}`);
+      if (res.ok) return (await res.json()) as Place;
+    } catch {
+      /* API down — fall through to browser geocoders */
+    }
   }
+  return localLookupZip(zip);
 }
 
 export async function fetchLeaderboard(zip?: string): Promise<LeaderboardEntry[]> {

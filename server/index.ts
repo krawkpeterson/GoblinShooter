@@ -6,7 +6,7 @@ import { WORLD_DATA_VERSION, WORLD_SIZES, type ScoreSubmission, type WorldProgre
 import { ShardCluster } from "./db/cluster.ts";
 import { Repo } from "./db/repo.ts";
 import { setPngDecoder } from "./geo/elevation.ts";
-import { geocodeZip } from "./geo/zip.ts";
+import { geocodeZip, normalizeZip } from "./geo/zip.ts";
 import { buildWorld } from "./world.ts";
 
 const ROOT = resolve(import.meta.dirname, "..");
@@ -31,13 +31,19 @@ app.get("/api/health", (_req, res) => {
 
 const zipCache = new Map<string, Awaited<ReturnType<typeof geocodeZip>>>();
 app.get("/api/zip/:zip", async (req, res) => {
-  const zip = req.params.zip;
+  const zip = normalizeZip(req.params.zip);
+  if (!zip) {
+    res.status(400).json({ error: "Zip code must be 5 digits" });
+    return;
+  }
   try {
     const place = zipCache.get(zip) ?? (await geocodeZip(zip));
     zipCache.set(zip, place);
     res.json(place);
   } catch (err) {
-    res.status(404).json({ error: (err as Error).message });
+    const message = (err as Error).message;
+    const missing = message.includes("doesn't exist");
+    res.status(missing ? 404 : 502).json({ error: message });
   }
 });
 
