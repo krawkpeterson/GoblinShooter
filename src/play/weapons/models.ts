@@ -183,68 +183,69 @@ export function buildAnaconda(): AnacondaModel {
   return { root, cylinderPivot, cylinder, hammer, speedloader, muzzle, sightHeight: 0.0255 };
 }
 
-/** Ruger Old Army: cap-and-ball .44, brass frame, octagon barrel, rammer. */
-export function buildRugerOldArmy(): AnacondaModel {
+/** Ruger Redhawk .44 Magnum: stainless, unfluted cylinder, 5.5" barrel. */
+export function buildRugerRedhawk(): AnacondaModel {
   const root = new THREE.Group();
-  const B = MAT.brass, S = MAT.blued, D = MAT.bluedDark;
+  const S = MAT.stainless, D = MAT.stainlessDark;
 
-  const oct = new THREE.CylinderGeometry(0.011, 0.011, 0.19, 8).rotateX(Math.PI / 2);
-  root.add(mesh(oct, S, 0, 0.002, -0.185));
-  root.add(mesh(new THREE.CylinderGeometry(0.0058, 0.0058, 0.192, 12).rotateX(Math.PI / 2), new THREE.MeshBasicMaterial({ color: "#050505" }), 0, 0.002, -0.185));
-  root.add(mesh(box(0.008, 0.01, 0.17, 0.001), S, 0, -0.01, -0.175)); // rammer housing
-  const ram = mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.12, 8).rotateX(Math.PI / 2), D, 0, -0.016, -0.16);
-  root.add(ram);
-  root.add(mesh(box(0.01, 0.008, 0.016, 0.002), B, 0, -0.016, -0.09)); // rammer lever
-  root.add(mesh(box(0.004, 0.012, 0.014, 0.001), S, 0, 0.016, -0.275)); // front sight
-  root.add(mesh(new THREE.BoxGeometry(0.003, 0.003, 0.002), MAT.tritiumOrange, 0, 0.021, -0.27));
+  root.add(mesh(new THREE.CylinderGeometry(0.0125, 0.0125, 0.145, 20).rotateX(Math.PI / 2), S, 0, 0, -0.165));
+  root.add(mesh(new THREE.CylinderGeometry(0.0064, 0.0064, 0.146, 12).rotateX(Math.PI / 2), new THREE.MeshBasicMaterial({ color: "#050505" }), 0, 0, -0.1655));
+  root.add(mesh(box(0.022, 0.018, 0.145, 0.003), S, 0, -0.012, -0.165)); // underlug
+  root.add(mesh(box(0.014, 0.006, 0.145, 0.001), S, 0, 0.013, -0.165)); // rib
+  root.add(mesh(box(0.004, 0.012, 0.016, 0.001), S, 0, 0.02, -0.228));
+  root.add(mesh(new THREE.BoxGeometry(0.004, 0.003, 0.003), MAT.tritiumOrange, 0, 0.025, -0.224));
 
-  root.add(mesh(box(0.024, 0.048, 0.038, 0.004), B, 0, -0.01, -0.002)); // brass frame
-  root.add(mesh(box(0.022, 0.014, 0.07, 0.003), B, 0, 0.016, -0.05)); // top strap
-  root.add(mesh(box(0.012, 0.006, 0.01, 0.001), D, 0, 0.024, -0.004));
-  const guard = mesh(new THREE.TorusGeometry(0.019, 0.0026, 8, 18, Math.PI), B, 0, -0.036, -0.028);
+  root.add(mesh(box(0.026, 0.054, 0.048, 0.005), S, 0, -0.008, 0.0)); // thick Redhawk frame
+  root.add(mesh(box(0.022, 0.016, 0.072, 0.003), S, 0, 0.018, -0.05));
+  root.add(mesh(box(0.022, 0.048, 0.028, 0.004), S, 0, -0.01, -0.09));
+  root.add(mesh(box(0.012, 0.007, 0.012, 0.001), D, 0, 0.027, -0.004));
+  root.add(mesh(new THREE.BoxGeometry(0.003, 0.0025, 0.002), MAT.tritium, -0.004, 0.027, 0.002));
+  root.add(mesh(new THREE.BoxGeometry(0.003, 0.0025, 0.002), MAT.tritium, 0.004, 0.027, 0.002));
+  const guard = mesh(new THREE.TorusGeometry(0.021, 0.003, 8, 20, Math.PI), S, 0, -0.038, -0.028);
   guard.rotation.set(0, Math.PI / 2, Math.PI);
   root.add(guard);
-  root.add(mesh(box(0.004, 0.014, 0.004, 0.001), S, 0, -0.042, -0.02));
+  root.add(mesh(box(0.005, 0.016, 0.006, 0.002), S, 0, -0.045, -0.02));
+  root.add(mesh(box(0.007, 0.012, 0.014, 0.001), D, -0.014, -0.004, -0.01)); // cylinder release
 
   const cylinderPivot = new THREE.Group();
-  cylinderPivot.position.set(-0.012, -0.028, -0.055);
+  cylinderPivot.position.set(-0.012, -0.03, -0.058);
   root.add(cylinderPivot);
   const cylinder = new THREE.Group();
-  cylinder.position.set(0.012, 0.016, 0);
+  cylinder.position.set(0.012, 0.017, 0);
   cylinderPivot.add(cylinder);
-  cylinder.add(mesh(new THREE.CylinderGeometry(0.023, 0.023, 0.05, 20).rotateX(Math.PI / 2), S));
+  cylinder.add(mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.062, 24).rotateX(Math.PI / 2), S));
   for (let i = 0; i < 6; i++) {
     const ch = (i / 6) * Math.PI * 2 + Math.PI / 2;
-    cylinder.add(mesh(new THREE.CylinderGeometry(0.0052, 0.0052, 0.003, 8).rotateX(Math.PI / 2), MAT.brass, Math.cos(ch) * 0.013, Math.sin(ch) * 0.013, 0.026));
-    cylinder.add(mesh(new THREE.SphereGeometry(0.0032, 8, 6), MAT.brass, Math.cos(ch) * 0.013, Math.sin(ch) * 0.013, -0.024));
+    cylinder.add(mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.003, 10).rotateX(Math.PI / 2), MAT.brass, Math.cos(ch) * 0.014, Math.sin(ch) * 0.014, 0.032));
   }
+  cylinder.add(mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.08, 8).rotateX(Math.PI / 2), D, 0, 0, -0.03));
 
   const hammer = new THREE.Group();
-  hammer.position.set(0, 0.008, 0.02);
-  hammer.add(mesh(box(0.007, 0.022, 0.012, 0.002), S, 0, 0.01, 0.002));
-  hammer.add(mesh(box(0.012, 0.004, 0.012, 0.001), D, 0, 0.02, 0.006));
+  hammer.position.set(0, 0.008, 0.024);
+  hammer.add(mesh(box(0.008, 0.022, 0.012, 0.002), S, 0, 0.01, 0));
+  hammer.add(mesh(box(0.014, 0.005, 0.014, 0.001), D, 0, 0.02, 0.006));
   root.add(hammer);
 
   const grip = new THREE.Group();
-  grip.position.set(0, -0.03, 0.028);
-  grip.rotation.x = -0.4;
-  grip.add(mesh(box(0.032, 0.1, 0.046, 0.012), MAT.wood, 0, -0.05, 0));
-  grip.add(mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.034, 10).rotateZ(Math.PI / 2), B, 0, -0.048, 0));
+  grip.position.set(0, -0.032, 0.032);
+  grip.rotation.x = -0.34;
+  grip.add(mesh(box(0.036, 0.11, 0.052, 0.012), MAT.wood, 0, -0.05, 0));
+  grip.add(mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.038, 12).rotateZ(Math.PI / 2), MAT.gold, 0, -0.048, 0.002));
   root.add(grip);
 
   const speedloader = new THREE.Group();
-  speedloader.add(mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.012, 16).rotateX(Math.PI / 2), MAT.wood, 0, 0, 0.01));
+  speedloader.add(mesh(new THREE.CylinderGeometry(0.023, 0.023, 0.014, 18).rotateX(Math.PI / 2), MAT.rubber, 0, 0, 0.012));
   for (let i = 0; i < 6; i++) {
     const ch = (i / 6) * Math.PI * 2 + Math.PI / 2;
-    speedloader.add(mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.028, 8).rotateX(Math.PI / 2), MAT.brass, Math.cos(ch) * 0.013, Math.sin(ch) * 0.013, -0.01));
+    speedloader.add(mesh(new THREE.CylinderGeometry(0.0055, 0.0055, 0.04, 10).rotateX(Math.PI / 2), MAT.brass, Math.cos(ch) * 0.014, Math.sin(ch) * 0.014, -0.012));
   }
   speedloader.visible = false;
   root.add(speedloader);
 
   const muzzle = new THREE.Object3D();
-  muzzle.position.set(0, 0.002, -0.28);
+  muzzle.position.set(0, 0, -0.24);
   root.add(muzzle);
-  return { root, cylinderPivot, cylinder, hammer, speedloader, muzzle, sightHeight: 0.024 };
+  return { root, cylinderPivot, cylinder, hammer, speedloader, muzzle, sightHeight: 0.026 };
 }
 
 export interface WinchesterModel {
