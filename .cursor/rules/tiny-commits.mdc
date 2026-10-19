@@ -1,0 +1,24 @@
+---
+description: Land work as the smallest possible git commits
+alwaysApply: true
+---
+
+# Tiny commits
+
+When committing this repo, make **the smallest commits that still make sense**.
+
+- One idea per commit. Do not bundle unrelated files.
+- Prefer one file per commit when the changes are independent (README vs CSS vs gameplay).
+- If a feature needs several files, split by layer: model, then AI, then UI copy.
+- Commit message says why, in one sentence. No laundry lists.
+- Never squash a pile of work into one "misc updates" commit.
+- Do not wait until the end of a task to commit a dump; commit as each slice lands.
+
+Examples:
+
+- `Add a snub-nose .22 revolver that rolls 2–15 damage.`
+- `Show geezers as purple dots on the minimap.`
+
+Not:
+
+- `Update game, docs, and URLs.`
