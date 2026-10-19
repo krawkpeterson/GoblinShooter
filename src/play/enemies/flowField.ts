@@ -30,8 +30,8 @@ export class FlowField {
       for (let i = 0; i < this.n; i++) {
         const x = (i + 0.5) * cell - this.half, z = (j + 0.5) * cell - this.half;
         if (
-          collision.buildingAt(x, z) || collision.buildingAt(x + r, z) || collision.buildingAt(x - r, z) ||
-          collision.buildingAt(x, z + r) || collision.buildingAt(x, z - r)
+          collision.blocksWalk(x, z) || collision.blocksWalk(x + r, z) || collision.blocksWalk(x - r, z) ||
+          collision.blocksWalk(x, z + r) || collision.blocksWalk(x, z - r)
         ) this.blocked[j * this.n + i] = 1;
       }
     }
