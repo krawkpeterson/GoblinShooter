@@ -410,11 +410,11 @@ export class AudioEngine {
       o.stop(start + dur + 0.08);
     };
     switch (kind) {
-      case "alert": voice(t, 180, 340, 0.5); break;
-      case "attack": voice(t, 260, 160, 0.18, 0.9); break;
-      case "hurt": voice(t, 320, 140, 0.22, 1); break;
-      case "death": voice(t, 280, 70, 1.1, 1.2); break;
-      case "laugh": for (let i = 0; i < 3; i++) voice(t + i * 0.16, 240 - i * 12, 200 - i * 10, 0.12, 0.7); break;
+      case "alert": voice(t, 420, 620, 0.42); break;
+      case "attack": voice(t, 520, 380, 0.16, 0.9); break;
+      case "hurt": voice(t, 640, 280, 0.2, 1); break;
+      case "death": voice(t, 480, 160, 0.9, 1.15); break;
+      case "laugh": for (let i = 0; i < 4; i++) voice(t + i * 0.12, 560 - i * 18, 480 - i * 14, 0.1, 0.65); break;
     }
   }
 

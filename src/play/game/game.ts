@@ -393,7 +393,7 @@ export class Game {
     pts = Math.round(pts * (rival ? 1 : this.combo));
     this.stats.score += pts;
 
-    const weaponTag = rival ? ".22 CIVIL WAR" : explosive ? "CAR BOMB" : weaponTagFor(weapon);
+    const weaponTag = rival ? "SPEAR DUEL" : explosive ? "CAR BOMB" : weaponTagFor(weapon);
     this.hud.killfeed(`${g.def.name} <em>${weaponTag}${head ? " ✛" : ""}</em>+${pts}`, head);
 
     if (rival) {
@@ -552,7 +552,7 @@ export class Game {
     const geezers = geezerN;
     this.spawnT = 0.5;
     this.audio.goblin("alert", 0.9, 0, 30);
-    const sub = geezers ? `${count - geezers} GOBLINS · ${geezers} EMO GEEZERS` : `${count} GOBLINS INBOUND`;
+    const sub = geezers ? `${count - geezers} GOBLINS · ${geezers} EMO GIRLS` : `${count} GOBLINS INBOUND`;
     this.hud.announce(`WAVE ${n}`, sub, "");
   }
 
