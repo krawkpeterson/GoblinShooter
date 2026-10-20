@@ -53,8 +53,10 @@ export class Player {
   }
 
   kick(pitch: number, yaw: number, trauma: number, fov = 0) {
-    this.recoilPitch += pitch;
-    this.recoilYaw += yaw;
+    this.pitch = THREE.MathUtils.clamp(this.pitch + pitch * 0.72, -1.5, 1.5);
+    this.yaw += yaw;
+    this.recoilPitch += pitch * 0.55;
+    this.recoilYaw += yaw * 0.7;
     this.trauma = Math.min(1, this.trauma + trauma);
     this.fovKick += fov;
   }
@@ -78,14 +80,15 @@ export class Player {
     this.pitch -= input.mouseDY * sensBase;
     this.pitch = THREE.MathUtils.clamp(this.pitch, -1.5, 1.5);
 
-    const back = 1 - Math.exp(-dt * 9);
+    const back = 1 - Math.exp(-dt * 11);
     const dp = this.recoilPitch * back, dyaw = this.recoilYaw * back;
     this.recoilPitch -= dp;
     this.recoilYaw -= dyaw;
-    this.pitch += dp * 0.35;
-    this.yaw += dyaw * 0.35;
-    this.trauma = Math.max(0, this.trauma - dt * 1.6);
-    this.fovKick *= Math.exp(-dt * 8);
+    this.pitch += dp * 0.18;
+    this.yaw += dyaw * 0.12;
+    this.pitch = THREE.MathUtils.clamp(this.pitch, -1.5, 1.5);
+    this.trauma = Math.max(0, this.trauma - dt * 2.1);
+    this.fovKick *= Math.exp(-dt * 10);
 
     if (this.alive && now - this.lastDamageAt > 4 && this.health < this.maxHealth) {
       this.health = Math.min(this.maxHealth, this.health + dt * 14);

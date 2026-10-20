@@ -38,17 +38,17 @@ export const WEAPONS: Record<GunKind, WeaponDef> = {
     sub: ".45 ACP · 230gr FMJ · 14+1",
     mag: 14,
     reserve: Infinity,
-    damage: 58,
-    headMult: 2.5,
-    interval: 0.095,
-    spreadHip: 0.014,
-    spreadAds: 0.0025,
-    reload: 1.5,
-    reloadEmpty: 2.0,
+    damage: 46,
+    headMult: 2.4,
+    interval: 0.145,
+    spreadHip: 0.028,
+    spreadAds: 0.0055,
+    reload: 1.65,
+    reloadEmpty: 2.15,
     penetration: 1,
-    recoil: { pitch: 0.032, yaw: 0.012, trauma: 0.14, fov: 1.5, back: 0.045, rot: 0.32 },
-    adsFov: 58,
-    range: 160,
+    recoil: { pitch: 0.055, yaw: 0.018, trauma: 0.2, fov: 2.2, back: 0.055, rot: 0.42 },
+    adsFov: 56,
+    range: 90,
   },
   anaconda: {
     id: "anaconda",
@@ -56,17 +56,17 @@ export const WEAPONS: Record<GunKind, WeaponDef> = {
     sub: ".44 MAGNUM · 240gr JHP · 6 ROUNDS",
     mag: 6,
     reserve: 36,
-    damage: 160,
-    headMult: 2.5,
-    interval: 0.42,
-    spreadHip: 0.018,
-    spreadAds: 0.0012,
-    reload: 2.6,
-    reloadEmpty: 2.6,
-    penetration: 4,
-    recoil: { pitch: 0.12, yaw: 0.03, trauma: 0.5, fov: 7, back: 0.11, rot: 0.85 },
-    adsFov: 48,
-    range: 260,
+    damage: 150,
+    headMult: 2.3,
+    interval: 0.58,
+    spreadHip: 0.038,
+    spreadAds: 0.008,
+    reload: 2.7,
+    reloadEmpty: 2.7,
+    penetration: 3,
+    recoil: { pitch: 0.16, yaw: 0.042, trauma: 0.62, fov: 8, back: 0.14, rot: 1.05 },
+    adsFov: 50,
+    range: 180,
   },
   ruger: {
     id: "ruger",
@@ -74,17 +74,17 @@ export const WEAPONS: Record<GunKind, WeaponDef> = {
     sub: ".44 MAGNUM · 6 RDS · DA/SA",
     mag: 6,
     reserve: 36,
-    damage: 145,
-    headMult: 2.5,
-    interval: 0.48,
-    spreadHip: 0.016,
-    spreadAds: 0.002,
-    reload: 2.8,
-    reloadEmpty: 2.8,
+    damage: 138,
+    headMult: 2.3,
+    interval: 0.62,
+    spreadHip: 0.034,
+    spreadAds: 0.009,
+    reload: 2.9,
+    reloadEmpty: 2.9,
     penetration: 3,
-    recoil: { pitch: 0.11, yaw: 0.028, trauma: 0.46, fov: 6, back: 0.1, rot: 0.78 },
-    adsFov: 50,
-    range: 220,
+    recoil: { pitch: 0.15, yaw: 0.038, trauma: 0.58, fov: 7, back: 0.13, rot: 0.98 },
+    adsFov: 52,
+    range: 160,
   },
   winchester: {
     id: "winchester",
@@ -92,18 +92,18 @@ export const WEAPONS: Record<GunKind, WeaponDef> = {
     sub: "12 GAUGE · 6+1 PUMP",
     mag: 6,
     reserve: 30,
-    damage: 22,
-    headMult: 1.6,
-    interval: 0.62,
-    spreadHip: 0.055,
-    spreadAds: 0.032,
-    reload: 2.4,
-    reloadEmpty: 2.8,
+    damage: 18,
+    headMult: 1.45,
+    interval: 0.72,
+    spreadHip: 0.078,
+    spreadAds: 0.048,
+    reload: 2.5,
+    reloadEmpty: 2.9,
     penetration: 1,
-    recoil: { pitch: 0.08, yaw: 0.02, trauma: 0.38, fov: 4, back: 0.09, rot: 0.55 },
-    adsFov: 62,
-    range: 48,
-    pellets: 8,
+    recoil: { pitch: 0.11, yaw: 0.03, trauma: 0.48, fov: 5.5, back: 0.12, rot: 0.7 },
+    adsFov: 64,
+    range: 36,
+    pellets: 9,
   },
 };
 
@@ -162,6 +162,8 @@ export class WeaponSystem {
   private time = 0;
   private ejected = false;
   private chamberedAfterReload = false;
+  private bloom = 0;
+  private moveSpread = 0;
   onFire?: (e: FireEvent) => void;
   onEjectShell?: (worldPos: THREE.Vector3) => void;
   onDumpShells?: (worldPos: THREE.Vector3, count: number) => void;
@@ -266,7 +268,8 @@ export class WeaponSystem {
   get reloadProgress() { return this.state === "reload" ? this.stateT / this.stateDur : 0; }
   get adsAmount() { return this.adsT; }
   get spread() {
-    return THREE.MathUtils.lerp(this.def.spreadHip, this.def.spreadAds, this.adsT);
+    const base = THREE.MathUtils.lerp(this.def.spreadHip, this.def.spreadAds, this.adsT);
+    return base + this.bloom + this.moveSpread;
   }
 
   setLighting(sun: THREE.Color, intensity: number) {
@@ -341,6 +344,9 @@ export class WeaponSystem {
     player.ads = wantAds;
     this.adsT += ((wantAds ? 1 : 0) - this.adsT) * (1 - Math.exp(-dt * 14));
     this.sprintT += ((player.sprinting && this.state === "idle" ? 1 : 0) - this.sprintT) * (1 - Math.exp(-dt * 8));
+    this.bloom = Math.max(0, this.bloom - dt * (this.adsT > 0.5 ? 0.085 : 0.055));
+    const air = player.onGround ? 0 : 0.022;
+    this.moveSpread = player.speed01 * (this.adsT > 0.5 ? 0.012 : 0.028) + air;
 
     this.stateT += dt;
     if (this.state === "lower" && this.stateT >= this.stateDur) {
@@ -385,6 +391,7 @@ export class WeaponSystem {
     const r = g.def.recoil;
     this.kickZ.vel += r.back * 60;
     this.kickRot.vel += r.rot * 40;
+    this.bloom = Math.min(0.09, this.bloom + r.pitch * 0.55);
     this.flashLife = this.isRevolver(g.def.id) || g.def.id === "winchester" ? 0.06 : 0.04;
     this.hammerBack = 1;
 
