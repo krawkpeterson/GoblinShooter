@@ -372,12 +372,15 @@ export function buildPrecisionRifle(): PrecisionModel {
   root.add(stock);
   root.add(mesh(box(0.032, 0.06, 0.014, 0.002), R, 0, 0.0, 0.35));
 
-  // Scope
-  root.add(mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.14, 14).rotateX(Math.PI / 2), D, 0, 0.055, -0.08));
-  root.add(mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.04, 14).rotateX(Math.PI / 2), C, 0, 0.055, -0.16));
-  root.add(mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.035, 14).rotateX(Math.PI / 2), C, 0, 0.055, 0.0));
-  root.add(mesh(box(0.012, 0.012, 0.02, 0.001), S, 0, 0.04, -0.1));
-  root.add(mesh(box(0.012, 0.012, 0.02, 0.001), S, 0, 0.04, -0.04));
+  // Low-profile variable optic (LPVO) — flat mounts, slim tube, capped ocular.
+  const opticY = 0.048;
+  root.add(mesh(box(0.018, 0.008, 0.055, 0.001), S, 0, opticY - 0.012, -0.1));
+  root.add(mesh(box(0.018, 0.008, 0.04, 0.001), S, 0, opticY - 0.012, -0.02));
+  root.add(mesh(new THREE.CylinderGeometry(0.011, 0.011, 0.155, 14).rotateX(Math.PI / 2), D, 0, opticY, -0.06));
+  root.add(mesh(new THREE.CylinderGeometry(0.014, 0.013, 0.028, 14).rotateX(Math.PI / 2), C, 0, opticY, -0.145));
+  root.add(mesh(new THREE.CylinderGeometry(0.015, 0.014, 0.032, 14).rotateX(Math.PI / 2), C, 0, opticY, 0.02));
+  root.add(mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.012, 10), R, 0.016, opticY + 0.002, -0.06));
+  root.add(mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.01, 10).rotateZ(Math.PI / 2), R, 0, opticY + 0.014, -0.04));
 
   const guard = mesh(new THREE.TorusGeometry(0.016, 0.0024, 8, 16, Math.PI), S, 0, -0.022, 0.04);
   guard.rotation.set(0, Math.PI / 2, Math.PI);
@@ -390,7 +393,7 @@ export function buildPrecisionRifle(): PrecisionModel {
   const ejection = new THREE.Object3D();
   ejection.position.set(0.02, 0.03, 0.0);
   root.add(ejection);
-  return { root, bolt, mag, muzzle, ejection, sightHeight: 0.055 };
+  return { root, bolt, mag, muzzle, ejection, sightHeight: opticY };
 }
 
 export interface M60Model {
