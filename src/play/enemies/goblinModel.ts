@@ -84,25 +84,25 @@ const M = {
 };
 
 const SKIN: Record<GoblinKind, string> = {
-  grunt: "#4f742c",
-  runner: "#6e8430",
-  brute: "#3c5a22",
-  shaman: "#5c7840",
-  king: "#2c5018",
+  grunt: "#5a6a3a",
+  runner: "#6a7040",
+  brute: "#4a5834",
+  shaman: "#586848",
+  king: "#3e4e2c",
 };
 const SKIN_DARK: Record<GoblinKind, string> = {
-  grunt: "#3a5520",
-  runner: "#556428",
-  brute: "#2a4018",
-  shaman: "#445830",
-  king: "#1e3810",
+  grunt: "#3e4a28",
+  runner: "#4a5030",
+  brute: "#323c22",
+  shaman: "#3e4834",
+  king: "#2a3420",
 };
 const EYES: Record<GoblinKind, string> = {
-  grunt: "#ff2208",
-  runner: "#ffb008",
-  brute: "#ff1040",
-  shaman: "#c040ff",
-  king: "#ff6a00",
+  grunt: "#e82810",
+  runner: "#e8a010",
+  brute: "#e81838",
+  shaman: "#a848e8",
+  king: "#e86010",
 };
 
 const skinCache = new Map<GoblinKind, THREE.MeshLambertMaterial>();
@@ -157,7 +157,7 @@ export function buildGoblin(kind: GoblinKind): GoblinRig {
 
   const torso = new THREE.Group();
   torso.position.y = 0.58;
-  torso.rotation.x = 0.28;
+  torso.rotation.x = 0.18;
   body.add(torso);
   torso.add(m(G.torso, skinMat, 0, 0.22, 0.04));
   const belly = m(G.belly, skinDark, 0, 0.0, 0.1);
