@@ -1,9 +1,9 @@
 import * as THREE from "three";
-import { buildGoblin, type GoblinRig, type HostileKind } from "../play/enemies/goblinModel.ts";
+import { buildGoblin, type GoblinKind, type GoblinRig, type HostileKind } from "../play/enemies/goblinModel.ts";
 import { buildGeezer } from "../play/enemies/geezerModel.ts";
 import { HOSTILES } from "../play/enemies/goblins.ts";
 
-const ORDER: HostileKind[] = ["runner", "grunt", "geezer", "shaman", "brute", "king"];
+const ORDER: (GoblinKind | "geezer")[] = ["runner", "grunt", "geezer", "shaman", "brute", "king"];
 
 /** Turntable lineup of the real in-game goblin rigs for the bestiary section. */
 export class GoblinLineup {
@@ -54,7 +54,7 @@ export class GoblinLineup {
 
     const xs = [-9.4, -6.0, -2.8, 0.4, 3.6, 8.6];
     ORDER.forEach((kind, i) => {
-      const rig = kind === "geezer" ? buildGeezer() : buildGoblin(kind);
+      const rig = kind === "geezer" ? buildGeezer() : buildGoblin(kind as GoblinKind);
       const s = HOSTILES[kind].scale;
       rig.root.scale.setScalar(s);
       rig.root.position.set(xs[i], 0, kind === "king" ? -2.5 : 0);
