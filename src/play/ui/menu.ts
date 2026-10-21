@@ -56,7 +56,7 @@ export class Menu {
     const savedLight = (params.get("tod") ?? localStorage.getItem("krawk.lighting")) as Lighting | null;
     if (savedLight && LIGHTINGS.some(([k]) => k === savedLight)) this.lighting = savedLight;
     const savedLoad = Number(localStorage.getItem("krawk.loadout"));
-    if (savedLoad === 0 || savedLoad === 1 || savedLoad === 2) this.loadout = savedLoad as LoadoutId;
+    if (savedLoad === 0 || savedLoad === 1 || savedLoad === 2 || savedLoad === 3) this.loadout = savedLoad as LoadoutId;
     const savedMode = localStorage.getItem("krawk.mode") as GameMode | null;
     if (savedMode === "waves" || savedMode === "survival") this.mode = savedMode;
 
@@ -102,6 +102,7 @@ export class Menu {
               <button type="button" class="seg-btn load-btn on" data-load="0"><b>ALPHA</b><small>1911 · ANACONDA</small></button>
               <button type="button" class="seg-btn load-btn" data-load="1"><b>BRAVO</b><small>REDHAWK · MODEL 12</small></button>
               <button type="button" class="seg-btn load-btn" data-load="2"><b>CHARLIE</b><small>PRECISION · M60</small></button>
+              <button type="button" class="seg-btn load-btn" data-load="3"><b>DELTA</b><small>LAW · MINES</small></button>
             </div>
             <div class="load-set" data-set="0">
               <div class="gun-card"><div><b>M1911 DOUBLE-STACK</b><span>.45 ACP · 14+1 · SEMI</span></div>
@@ -116,10 +117,16 @@ export class Menu {
                 <div class="bars"><div class="bar"><i style="width:88%"></i></div><div class="bar"><i style="width:44%"></i></div><div class="bar"><i style="width:55%"></i></div></div></div>
             </div>
             <div class="load-set" data-set="2" hidden>
-              <div class="gun-card"><div><b>RUGER PRECISION</b><span>6.5 CM · LPVO · BOLT</span></div>
-                <div class="bars"><div class="bar"><i style="width:100%"></i></div><div class="bar"><i style="width:28%"></i></div><div class="bar"><i style="width:98%"></i></div></div></div>
+              <div class="gun-card"><div><b>RUGER PRECISION</b><span>6.5 CM · LPVO · SINGLE SHOT</span></div>
+                <div class="bars"><div class="bar"><i style="width:100%"></i></div><div class="bar"><i style="width:22%"></i></div><div class="bar"><i style="width:98%"></i></div></div></div>
               <div class="gun-card mag"><div><b>M60 MACHINE GUN</b><span>7.62 NATO · 100 RD · FULL AUTO</span></div>
                 <div class="bars"><div class="bar"><i style="width:70%"></i></div><div class="bar"><i style="width:55%"></i></div><div class="bar"><i style="width:40%"></i></div></div></div>
+            </div>
+            <div class="load-set" data-set="3" hidden>
+              <div class="gun-card mag"><div><b>M72 LAW</b><span>66mm HEAT · ROCKET · RELOAD EACH SHOT</span></div>
+                <div class="bars"><div class="bar"><i style="width:100%"></i></div><div class="bar"><i style="width:25%"></i></div><div class="bar"><i style="width:70%"></i></div></div></div>
+              <div class="gun-card"><div><b>CLAYMORE MINE</b><span>PROXIMITY · PLANT ON THE GROUND</span></div>
+                <div class="bars"><div class="bar"><i style="width:90%"></i></div><div class="bar"><i style="width:50%"></i></div><div class="bar"><i style="width:35%"></i></div></div></div>
             </div>
           </div>
           <div class="panel board"><h3><span>GLOBAL KILLBOARD</span><span class="board-shards"></span></h3><ol class="board-list"><li class="board-empty">Loading…</li></ol></div>
@@ -258,7 +265,7 @@ export class Menu {
       el.hidden = Number(el.dataset.set) !== this.loadout;
     });
     const n = this.el.querySelector(".load-n");
-    if (n) n.textContent = this.loadout === 0 ? "ALPHA" : this.loadout === 1 ? "BRAVO" : "CHARLIE";
+    if (n) n.textContent = this.loadout === 0 ? "ALPHA" : this.loadout === 1 ? "BRAVO" : this.loadout === 2 ? "CHARLIE" : "DELTA";
   }
 
   private async onZipChange(cells: HTMLInputElement[], deployBtn: HTMLButtonElement) {
