@@ -124,19 +124,19 @@ export const WEAPONS: Record<GunKind, WeaponDef> = {
   precision: {
     id: "precision",
     name: "RUGER PRECISION",
-    sub: "6.5 CREEDMOOR · BOLT · 10 RDS",
+    sub: "6.5 CREEDMOOR · LPVO · BOLT · 10 RDS",
     mag: 10,
     reserve: 40,
     damage: 210,
     headMult: 2.8,
     interval: 1.35,
     spreadHip: 0.028,
-    spreadAds: 0.00035,
+    spreadAds: 0.0002,
     reload: 2.6,
     reloadEmpty: 3.1,
     penetration: 4,
     recoil: { pitch: 0.12, yaw: 0.02, trauma: 0.45, fov: 4, back: 0.11, rot: 0.55 },
-    adsFov: 28,
+    adsFov: 48,
     range: 320,
     boltAction: true,
   },
@@ -160,6 +160,9 @@ export const WEAPONS: Record<GunKind, WeaponDef> = {
     fullAuto: true,
   },
 };
+
+/** LPVO zoom steps for the Precision — FOV at each click (1× / mid / high). */
+export const PRECISION_SCOPE_FOVS = [48, 28, 16] as const;
 
 interface Spring { v: number; vel: number }
 const spring = (s: Spring, target: number, k: number, d: number, dt: number) => {
@@ -216,6 +219,8 @@ export class WeaponSystem {
   private cylTarget = 0;
   private hammerBack = 0;
   private boltT = 0;
+  /** 0 = hip, 1–3 = LPVO zoom steps (Precision only). */
+  scopeLevel = 0;
   private time = 0;
   private ejected = false;
   private chamberedAfterReload = false;
@@ -334,6 +339,11 @@ export class WeaponSystem {
   get reloading() { return this.state === "reload"; }
   get reloadProgress() { return this.state === "reload" ? this.stateT / this.stateDur : 0; }
   get adsAmount() { return this.adsT; }
+  get scoped() { return this.def.id === "precision" && this.scopeLevel > 0; }
+  get adsFov() {
+    if (this.scoped) return PRECISION_SCOPE_FOVS[this.scopeLevel - 1] ?? this.def.adsFov;
+    return this.def.adsFov;
+  }
   get spread() {
     const base = THREE.MathUtils.lerp(this.def.spreadHip, this.def.spreadAds, this.adsT);
     const aim = this.adsT * this.adsT;
@@ -371,6 +381,7 @@ export class WeaponSystem {
       this.pendingSwap = i;
       return;
     }
+    this.scopeLevel = 0;
     this.pendingSwap = i;
     this.setState("lower", 0.18);
     this.audio.weaponSwap();
@@ -385,6 +396,7 @@ export class WeaponSystem {
   startReload() {
     const g = this.gun;
     if (this.state !== "idle" || g.ammo >= g.def.mag || g.reserve <= 0) return;
+    this.scopeLevel = 0;
     this.reloadWasEmpty = g.ammo === 0;
     this.ejected = false;
     this.chamberedAfterReload = false;
@@ -409,7 +421,14 @@ export class WeaponSystem {
     if (input.wasPressed("KeyQ") || input.wheel !== 0) this.switchTo(this.current === 0 ? 1 : 0);
     if (input.wasPressed("KeyR")) this.startReload();
 
-    const wantAds = input.adsHeld && this.state === "idle" && player.alive;
+    // Precision LPVO: each RMB cycles 1× → mid → high → hip. Other guns hold-to-ADS.
+    if (this.def.id === "precision" && input.adsPressed && this.state === "idle" && player.alive) {
+      this.scopeLevel = (this.scopeLevel + 1) % 4;
+    }
+    if (this.def.id !== "precision") this.scopeLevel = 0;
+    const wantAds = this.def.id === "precision"
+      ? this.scopeLevel > 0 && this.state === "idle" && player.alive
+      : input.adsHeld && this.state === "idle" && player.alive;
     player.ads = wantAds;
     this.adsT += ((wantAds ? 1 : 0) - this.adsT) * (1 - Math.exp(-dt * 14));
     this.sprintT += ((player.sprinting && this.state === "idle" ? 1 : 0) - this.sprintT) * (1 - Math.exp(-dt * 8));
@@ -422,6 +441,7 @@ export class WeaponSystem {
       this.gun.root.visible = false;
       this.current = this.pendingSwap >= 0 ? this.pendingSwap : this.current;
       this.pendingSwap = -1;
+      this.scopeLevel = 0;
       this.gun.root.visible = true;
       this.swapsDone++;
       this.setState("raise", 0.28);
@@ -596,6 +616,9 @@ export class WeaponSystem {
 
     g.root.position.copy(pos);
     g.root.rotation.copy(rot);
+    // Looking through the LPVO — hide the viewmodel so the scope overlay owns the frame.
+    if (g.def.id === "precision" && this.scopeLevel > 0 && this.state === "idle") g.root.visible = false;
+    else if (this.state !== "lower") g.root.visible = true;
 
     if (g.def.id === "m1911" && this.m1911) {
       this.slideBack = Math.max(0, this.slideBack - dt * 22);
