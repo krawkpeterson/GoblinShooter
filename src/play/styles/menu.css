@@ -282,3 +282,94 @@
   .menu-main { grid-template-columns: 1fr; overflow: auto; align-items: start; }
   .menu-right { display: none; }
 }
+
+@media (max-width: 720px) {
+  .menu {
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .menu-top {
+    position: sticky;
+    top: 0;
+    padding: 12px 16px;
+    padding-top: max(12px, env(safe-area-inset-top));
+    background: linear-gradient(180deg, rgba(4, 6, 10, 0.92), rgba(4, 6, 10, 0.72) 70%, transparent);
+    backdrop-filter: blur(10px);
+  }
+  .menu-status { display: none; }
+  .brand-mini { font-size: 18px; gap: 8px; }
+  .brand-mini img { width: 24px; height: 24px; }
+  .menu-main {
+    display: flex;
+    flex-direction: column;
+    height: auto;
+    min-height: 100%;
+    gap: 22px;
+    padding: 8px 16px 28px;
+    max-width: none;
+  }
+  .menu-left { max-width: none; width: 100%; }
+  .menu-right {
+    display: grid;
+    width: 100%;
+    gap: 14px;
+  }
+  .title {
+    font-size: clamp(64px, 22vw, 92px);
+    margin: 6px 0 4px;
+    line-height: 0.85;
+  }
+  .tagline {
+    font-size: 15px;
+    line-height: 1.4;
+    margin-bottom: 18px;
+    max-width: none;
+  }
+  .zip-cells {
+    gap: 6px;
+    width: 100%;
+  }
+  .zip-cell {
+    flex: 1 1 0;
+    width: auto;
+    min-width: 0;
+    height: 64px;
+    font-size: 34px;
+    border-radius: 12px;
+  }
+  .quick-zips .chip {
+    min-height: 40px;
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+  .seg, .seg-4, .callsign { max-width: none; width: 100%; }
+  .seg { grid-template-columns: 1fr; }
+  .seg-4 { grid-template-columns: repeat(2, 1fr); }
+  .seg-btn { padding: 14px 16px; min-height: 52px; }
+  .seg-4 .seg-btn { padding: 12px; min-height: 48px; }
+  .menu-actions {
+    flex-direction: column;
+    align-items: stretch;
+    margin-top: 12px;
+  }
+  .menu-actions .btn-deploy {
+    width: 100%;
+    height: 56px;
+    font-size: 22px;
+  }
+  .loadout, .board { padding: 16px; }
+  .gun-card {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .gun-card .bars { width: 100%; }
+  .board-list { max-height: none; }
+  .menu-foot {
+    position: relative;
+    flex-direction: column;
+    gap: 8px;
+    padding: 16px;
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+  }
+}
