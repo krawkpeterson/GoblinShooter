@@ -25,7 +25,7 @@ export class PauseOverlay {
             : `<div><kbd>WASD</kbd>Move</div><div><kbd>SHIFT</kbd>Sprint</div>
           <div><kbd>SPACE</kbd>Jump</div><div><kbd>C</kbd>Crouch</div>
           <div><kbd>LMB</kbd>Fire</div><div><kbd>RMB</kbd>Aim down sights</div>
-          <div><kbd>R</kbd>Reload</div><div><kbd>1 2 Q</kbd>Swap weapon</div>`}
+          <div><kbd>R</kbd>Reload</div><div><kbd>1 2 3 Q</kbd>Swap weapon</div>`}
         </div>
         <div class="actions">
           <button class="btn-deploy resume"><span>RESUME</span><i class="shine"></i></button>

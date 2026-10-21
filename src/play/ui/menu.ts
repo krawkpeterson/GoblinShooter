@@ -99,34 +99,42 @@ export class Menu {
           <div class="panel loadout">
             <h3><span>LOADOUT</span><span class="load-n">ALPHA</span></h3>
             <div class="seg load-seg">
-              <button type="button" class="seg-btn load-btn on" data-load="0"><b>ALPHA</b><small>1911 · ANACONDA</small></button>
-              <button type="button" class="seg-btn load-btn" data-load="1"><b>BRAVO</b><small>REDHAWK · MODEL 12</small></button>
-              <button type="button" class="seg-btn load-btn" data-load="2"><b>CHARLIE</b><small>PRECISION · M60</small></button>
-              <button type="button" class="seg-btn load-btn" data-load="3"><b>DELTA</b><small>LAW · MINES</small></button>
+              <button type="button" class="seg-btn load-btn on" data-load="0"><b>ALPHA</b><small>1911 · .44 · KNIFE</small></button>
+              <button type="button" class="seg-btn load-btn" data-load="1"><b>BRAVO</b><small>REDHAWK · 12GA · BAYONET</small></button>
+              <button type="button" class="seg-btn load-btn" data-load="2"><b>CHARLIE</b><small>PRECISION · M60 · MACHETE</small></button>
+              <button type="button" class="seg-btn load-btn" data-load="3"><b>DELTA</b><small>LAW · MINES · CROWBAR</small></button>
             </div>
             <div class="load-set" data-set="0">
               <div class="gun-card"><div><b>M1911 DOUBLE-STACK</b><span>.45 ACP · 14+1 · SEMI</span></div>
                 <div class="bars"><div class="bar"><i style="width:55%"></i></div><div class="bar"><i style="width:88%"></i></div><div class="bar"><i style="width:80%"></i></div></div></div>
               <div class="gun-card mag"><div><b>COLT ANACONDA</b><span>.44 MAGNUM · 6 RDS · PENETRATES</span></div>
                 <div class="bars"><div class="bar"><i style="width:100%"></i></div><div class="bar"><i style="width:30%"></i></div><div class="bar"><i style="width:95%"></i></div></div></div>
+              <div class="gun-card"><div><b>COMBAT KNIFE</b><span>MELEE · CLOSE QUARTERS</span></div>
+                <div class="bars"><div class="bar"><i style="width:90%"></i></div><div class="bar"><i style="width:100%"></i></div><div class="bar"><i style="width:25%"></i></div></div></div>
             </div>
             <div class="load-set" data-set="1" hidden>
               <div class="gun-card"><div><b>RUGER REDHAWK</b><span>.44 MAGNUM · 6 RDS · DA/SA</span></div>
                 <div class="bars"><div class="bar"><i style="width:72%"></i></div><div class="bar"><i style="width:38%"></i></div><div class="bar"><i style="width:70%"></i></div></div></div>
               <div class="gun-card mag"><div><b>WINCHESTER MODEL 12</b><span>12 GAUGE · 6+1 PUMP · BUCKSHOT</span></div>
                 <div class="bars"><div class="bar"><i style="width:88%"></i></div><div class="bar"><i style="width:44%"></i></div><div class="bar"><i style="width:55%"></i></div></div></div>
+              <div class="gun-card"><div><b>TRENCH BAYONET</b><span>MELEE · THRUST</span></div>
+                <div class="bars"><div class="bar"><i style="width:92%"></i></div><div class="bar"><i style="width:100%"></i></div><div class="bar"><i style="width:28%"></i></div></div></div>
             </div>
             <div class="load-set" data-set="2" hidden>
               <div class="gun-card"><div><b>RUGER PRECISION</b><span>6.5 CM · LPVO · SINGLE SHOT</span></div>
                 <div class="bars"><div class="bar"><i style="width:100%"></i></div><div class="bar"><i style="width:22%"></i></div><div class="bar"><i style="width:98%"></i></div></div></div>
               <div class="gun-card mag"><div><b>M60 MACHINE GUN</b><span>7.62 NATO · 100 RD · FULL AUTO</span></div>
                 <div class="bars"><div class="bar"><i style="width:70%"></i></div><div class="bar"><i style="width:55%"></i></div><div class="bar"><i style="width:40%"></i></div></div></div>
+              <div class="gun-card"><div><b>MACHETE</b><span>MELEE · HEAVY CLEAVE</span></div>
+                <div class="bars"><div class="bar"><i style="width:95%"></i></div><div class="bar"><i style="width:100%"></i></div><div class="bar"><i style="width:30%"></i></div></div></div>
             </div>
             <div class="load-set" data-set="3" hidden>
               <div class="gun-card mag"><div><b>M72 LAW</b><span>66mm HEAT · ROCKET · RELOAD EACH SHOT</span></div>
                 <div class="bars"><div class="bar"><i style="width:100%"></i></div><div class="bar"><i style="width:25%"></i></div><div class="bar"><i style="width:70%"></i></div></div></div>
               <div class="gun-card"><div><b>CLAYMORE MINE</b><span>PROXIMITY · PLANT ON THE GROUND</span></div>
                 <div class="bars"><div class="bar"><i style="width:90%"></i></div><div class="bar"><i style="width:50%"></i></div><div class="bar"><i style="width:35%"></i></div></div></div>
+              <div class="gun-card"><div><b>CROWBAR</b><span>MELEE · BLUNT FORCE</span></div>
+                <div class="bars"><div class="bar"><i style="width:88%"></i></div><div class="bar"><i style="width:100%"></i></div><div class="bar"><i style="width:22%"></i></div></div></div>
             </div>
           </div>
           <div class="panel board"><h3><span>GLOBAL KILLBOARD</span><span class="board-shards"></span></h3><ol class="board-list"><li class="board-empty">Loading…</li></ol></div>

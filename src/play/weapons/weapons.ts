@@ -8,6 +8,7 @@ import {
   buildHands,
   buildM1911,
   buildM60,
+  buildMelee,
   buildMinePuck,
   buildPrecisionRifle,
   buildRocketLauncher,
@@ -16,6 +17,7 @@ import {
   type AnacondaModel,
   type M1911Model,
   type M60Model,
+  type MeleeModel,
   type MineModel,
   type PrecisionModel,
   type RocketModel,
@@ -23,11 +25,11 @@ import {
 } from "./models.ts";
 
 export type LoadoutId = 0 | 1 | 2 | 3;
-export const LOADOUTS: { id: LoadoutId; guns: [GunKind, GunKind]; title: string }[] = [
-  { id: 0, guns: ["m1911", "anaconda"], title: "ALPHA" },
-  { id: 1, guns: ["ruger", "winchester"], title: "BRAVO" },
-  { id: 2, guns: ["precision", "m60"], title: "CHARLIE" },
-  { id: 3, guns: ["rocket", "mine"], title: "DELTA" },
+export const LOADOUTS: { id: LoadoutId; guns: [GunKind, GunKind, GunKind]; title: string }[] = [
+  { id: 0, guns: ["m1911", "anaconda", "knife"], title: "ALPHA" },
+  { id: 1, guns: ["ruger", "winchester", "bayonet"], title: "BRAVO" },
+  { id: 2, guns: ["precision", "m60", "machete"], title: "CHARLIE" },
+  { id: 3, guns: ["rocket", "mine", "crowbar"], title: "DELTA" },
 ];
 
 export interface WeaponDef {
@@ -52,7 +54,10 @@ export interface WeaponDef {
   boltAction?: boolean;
   /** Non-hitscan: rocket projectile or plantable mine. */
   ordnance?: "rocket" | "mine";
+  melee?: boolean;
 }
+
+const MELEE_RECOIL = { pitch: 0.04, yaw: 0.02, trauma: 0.12, fov: 1.2, back: 0.08, rot: 0.55 };
 
 export const WEAPONS: Record<GunKind, WeaponDef> = {
   m1911: {
@@ -204,7 +209,93 @@ export const WEAPONS: Record<GunKind, WeaponDef> = {
     range: 4,
     ordnance: "mine",
   },
+  knife: {
+    id: "knife",
+    name: "COMBAT KNIFE",
+    sub: "CLOSE QUARTERS · SILENT",
+    mag: 1,
+    reserve: Infinity,
+    damage: 68,
+    headMult: 1.8,
+    interval: 0.42,
+    spreadHip: 0.01,
+    spreadAds: 0.01,
+    reload: 0.1,
+    reloadEmpty: 0.1,
+    penetration: 1,
+    recoil: MELEE_RECOIL,
+    adsFov: 70,
+    range: 2.35,
+    melee: true,
+  },
+  bayonet: {
+    id: "bayonet",
+    name: "TRENCH BAYONET",
+    sub: "THRUST · CLOSE RANGE",
+    mag: 1,
+    reserve: Infinity,
+    damage: 72,
+    headMult: 1.9,
+    interval: 0.48,
+    spreadHip: 0.01,
+    spreadAds: 0.01,
+    reload: 0.1,
+    reloadEmpty: 0.1,
+    penetration: 1,
+    recoil: MELEE_RECOIL,
+    adsFov: 70,
+    range: 2.55,
+    melee: true,
+  },
+  machete: {
+    id: "machete",
+    name: "MACHETE",
+    sub: "HEAVY CLEAVE",
+    mag: 1,
+    reserve: Infinity,
+    damage: 88,
+    headMult: 1.7,
+    interval: 0.58,
+    spreadHip: 0.012,
+    spreadAds: 0.012,
+    reload: 0.1,
+    reloadEmpty: 0.1,
+    penetration: 1,
+    recoil: { ...MELEE_RECOIL, back: 0.1, rot: 0.7 },
+    adsFov: 70,
+    range: 2.7,
+    melee: true,
+  },
+  crowbar: {
+    id: "crowbar",
+    name: "CROWBAR",
+    sub: "BLUNT FORCE",
+    mag: 1,
+    reserve: Infinity,
+    damage: 80,
+    headMult: 1.6,
+    interval: 0.52,
+    spreadHip: 0.012,
+    spreadAds: 0.012,
+    reload: 0.1,
+    reloadEmpty: 0.1,
+    penetration: 1,
+    recoil: { ...MELEE_RECOIL, back: 0.11, rot: 0.65 },
+    adsFov: 70,
+    range: 2.5,
+    melee: true,
+  },
 };
+
+/** Ammo granted per pickup for a given gun (primary/secondary only). */
+export function ammoDropAmount(id: GunKind): number {
+  if (id === "rocket" || id === "mine") return 2;
+  if (id === "m60") return 40;
+  if (id === "precision") return 6;
+  if (id === "winchester") return 6;
+  if (id === "m1911") return 0; // infinite reserve
+  return 12;
+}
 
 /** LPVO zoom steps for the Precision — FOV at each click (1× / mid / high). */
 export const PRECISION_SCOPE_FOVS = [48, 28, 16] as const;
@@ -252,6 +343,7 @@ export class WeaponSystem {
   private m60?: M60Model;
   private rocket?: RocketModel;
   private mine?: MineModel;
+  private melee?: MeleeModel;
   private flash: THREE.Mesh;
   private flashLife = 0;
   private kickZ: Spring = { v: 0, vel: 0 };
@@ -334,11 +426,16 @@ export class WeaponSystem {
         this.rocket.root.add(hands.right, hands.left);
         hands.left.position.set(-0.03, -0.02, -0.1);
         roots.set(id, this.rocket.root);
-      } else {
+      } else if (id === "mine") {
         this.mine = buildMinePuck();
         this.mine.root.add(hands.right, hands.left);
         hands.left.position.set(-0.02, -0.02, -0.04);
         roots.set(id, this.mine.root);
+      } else {
+        this.melee = buildMelee(id as "knife" | "machete" | "crowbar" | "bayonet");
+        this.melee.root.add(hands.right, hands.left);
+        hands.left.position.set(-0.02, -0.02, -0.02);
+        roots.set(id, this.melee.root);
       }
     }
 
@@ -415,14 +512,30 @@ export class WeaponSystem {
 
   addReserve(id: GunKind, n: number) {
     const g = this.guns.find((x) => x.def.id === id);
-    if (!g || !Number.isFinite(g.reserve)) return;
-    g.reserve = Math.min(g.reserve + n, Math.max(90, g.def.reserve * 2));
+    if (!g || !Number.isFinite(g.reserve) || g.def.melee) return;
+    const cap = Math.max(g.def.reserve * 2, id === "rocket" || id === "mine" ? 16 : id === "m60" ? 400 : 90);
+    g.reserve = Math.min(g.reserve + n, cap);
+  }
+
+  /** Refill primary + secondary (slots 0–1). Returns true if any ammo was taken. */
+  addAmmoDrops(): boolean {
+    let took = false;
+    for (let i = 0; i < Math.min(2, this.guns.length); i++) {
+      const g = this.guns[i];
+      if (!g || g.def.melee || !Number.isFinite(g.reserve)) continue;
+      const n = ammoDropAmount(g.def.id);
+      if (n <= 0) continue;
+      const before = g.reserve;
+      this.addReserve(g.def.id, n);
+      if (g.reserve > before) took = true;
+    }
+    return took;
   }
 
   addSecondaryReserve(n: number) {
     const g = this.guns[1] ?? this.guns[0];
-    if (!Number.isFinite(g.reserve)) return;
-    g.reserve = Math.min(g.reserve + n, Math.max(90, g.def.reserve * 2));
+    if (!g || !Number.isFinite(g.reserve) || g.def.melee) return;
+    this.addReserve(g.def.id, n);
   }
 
   refill() {
@@ -475,17 +588,22 @@ export class WeaponSystem {
     this.time += dt;
     if (input.wasPressed("Digit1")) this.switchTo(0);
     if (input.wasPressed("Digit2")) this.switchTo(1);
-    if (input.wasPressed("KeyQ") || input.wheel !== 0) this.switchTo(this.current === 0 ? 1 : 0);
-    if (input.wasPressed("KeyR")) this.startReload();
+    if (input.wasPressed("Digit3")) this.switchTo(2);
+    if (input.wasPressed("KeyQ") || input.wheel !== 0) {
+      const dir = input.wheel < 0 ? -1 : 1;
+      this.switchTo((this.current + dir + this.guns.length) % this.guns.length);
+    }
+    if (input.wasPressed("KeyR") && !this.def.melee) this.startReload();
 
     // Precision LPVO: each RMB cycles 1× → mid → high → hip. Other guns hold-to-ADS.
     if (this.def.id === "precision" && input.adsPressed && this.state === "idle" && player.alive) {
       this.scopeLevel = (this.scopeLevel + 1) % 4;
     }
     if (this.def.id !== "precision") this.scopeLevel = 0;
-    const wantAds = this.def.id === "precision"
-      ? this.scopeLevel > 0 && this.state === "idle" && player.alive
-      : input.adsHeld && this.state === "idle" && player.alive;
+    const wantAds = this.def.melee ? false
+      : this.def.id === "precision"
+        ? this.scopeLevel > 0 && this.state === "idle" && player.alive
+        : input.adsHeld && this.state === "idle" && player.alive;
     player.ads = wantAds;
     this.adsT += ((wantAds ? 1 : 0) - this.adsT) * (1 - Math.exp(-dt * 14));
     this.sprintT += ((player.sprinting && this.state === "idle" ? 1 : 0) - this.sprintT) * (1 - Math.exp(-dt * 8));
@@ -524,14 +642,15 @@ export class WeaponSystem {
   private tryFire(now: number) {
     if (this.state !== "idle" || now < this.nextFireAt) return;
     const g = this.gun;
-    if (g.ammo <= 0) {
+    if (!g.def.melee && g.ammo <= 0) {
       this.audio.dryFire();
       this.onDryFire?.();
       this.nextFireAt = now + 0.2;
       if (g.reserve > 0) this.startReload();
       return;
     }
-    g.ammo--;
+    if (!g.def.melee) g.ammo--;
+    else g.ammo = 1;
     g.shotsFired++;
     this.shotsFired++;
     this.nextFireAt = now + g.def.interval;
@@ -539,7 +658,8 @@ export class WeaponSystem {
     this.kickZ.vel += r.back * 60;
     this.kickRot.vel += r.rot * 40;
     this.bloom = Math.min(g.def.fullAuto ? 0.14 : 0.09, this.bloom + r.pitch * (g.def.fullAuto ? 0.35 : 0.55));
-    this.flashLife = this.isRevolver(g.def.id) || g.def.id === "winchester" || g.def.id === "m60" || g.def.id === "rocket" ? 0.06 : g.def.id === "mine" ? 0 : 0.04;
+    this.flashLife = g.def.melee || g.def.id === "mine" ? 0
+      : this.isRevolver(g.def.id) || g.def.id === "winchester" || g.def.id === "m60" || g.def.id === "rocket" ? 0.06 : 0.04;
     this.hammerBack = 1;
     if (g.def.boltAction) this.boltT = 1;
 
@@ -601,6 +721,7 @@ export class WeaponSystem {
     if (id === "m60") return this.m60!.muzzle;
     if (id === "rocket") return this.rocket!.muzzle;
     if (id === "mine") return this.mine!.muzzle;
+    if (WEAPONS[id].melee) return this.melee!.muzzle;
     return this.revolverOf(id)!.muzzle;
   }
 
@@ -611,6 +732,7 @@ export class WeaponSystem {
     if (id === "m60") return this.m60!.sightHeight;
     if (id === "rocket") return this.rocket!.sightHeight;
     if (id === "mine") return this.mine!.sightHeight;
+    if (WEAPONS[id].melee) return this.melee!.sightHeight;
     return this.revolverOf(id)!.sightHeight;
   }
 

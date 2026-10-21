@@ -1,4 +1,6 @@
-export type GunKind = "m1911" | "anaconda" | "ruger" | "winchester" | "precision" | "m60" | "rocket" | "mine";
+export type GunKind =
+  | "m1911" | "anaconda" | "ruger" | "winchester" | "precision" | "m60" | "rocket" | "mine"
+  | "knife" | "machete" | "crowbar" | "bayonet";
 
 /** Everything is synthesized at runtime: no audio files ship with the game. */
 export class AudioEngine {
@@ -126,6 +128,7 @@ export class AudioEngine {
     const ctx = this.ctx;
     const t = ctx.currentTime + 0.001;
     this.lastShot = t;
+    const melee = { crack: 1800, body: 400, sub: 120, dur: 0.1, vol: 0.45, mech: 900, echo: 0.04 };
     const spec = {
       m1911: { crack: 4200, body: 1400, sub: 165, dur: 0.16, vol: 0.95, mech: 2600, echo: 0.12 },
       anaconda: { crack: 2800, body: 780, sub: 88, dur: 0.28, vol: 1.15, mech: 900, echo: 0.18 },
@@ -135,6 +138,10 @@ export class AudioEngine {
       m60: { crack: 2400, body: 680, sub: 78, dur: 0.14, vol: 1.05, mech: 700, echo: 0.1 },
       rocket: { crack: 900, body: 420, sub: 55, dur: 0.45, vol: 1.3, mech: 280, echo: 0.28 },
       mine: { crack: 800, body: 500, sub: 90, dur: 0.12, vol: 0.55, mech: 1200, echo: 0.05 },
+      knife: melee,
+      machete: melee,
+      crowbar: melee,
+      bayonet: melee,
     }[kind];
 
     const out = ctx.createGain();

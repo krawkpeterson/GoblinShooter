@@ -520,6 +520,39 @@ export function buildMinePuck(): MineModel {
   return { root, muzzle, sightHeight: 0.02 };
 }
 
+export interface MeleeModel {
+  root: THREE.Group;
+  muzzle: THREE.Object3D;
+  sightHeight: number;
+}
+
+/** Simple viewmodel melee: knife / machete / crowbar / bayonet. */
+export function buildMelee(kind: "knife" | "machete" | "crowbar" | "bayonet"): MeleeModel {
+  const root = new THREE.Group();
+  const metal = MAT.stainless;
+  const dark = MAT.bluedDark;
+  const grip = MAT.rubber;
+  if (kind === "crowbar") {
+    root.add(mesh(new THREE.CylinderGeometry(0.012, 0.014, 0.42, 8), dark, 0.02, -0.02, -0.22));
+    const hook = mesh(box(0.04, 0.014, 0.08, 0.004), metal, 0.02, 0.02, -0.42);
+    hook.rotation.z = 0.4;
+    root.add(hook);
+  } else if (kind === "machete") {
+    root.add(mesh(box(0.028, 0.09, 0.12, 0.008), grip, 0.01, -0.04, -0.02));
+    root.add(mesh(box(0.008, 0.11, 0.38, 0.002), metal, 0.01, -0.01, -0.28));
+  } else if (kind === "bayonet") {
+    root.add(mesh(box(0.022, 0.06, 0.09, 0.006), grip, 0.01, -0.03, 0));
+    root.add(mesh(box(0.006, 0.04, 0.28, 0.001), metal, 0.01, -0.01, -0.2));
+  } else {
+    root.add(mesh(box(0.024, 0.07, 0.1, 0.008), grip, 0.01, -0.035, 0));
+    root.add(mesh(box(0.007, 0.05, 0.22, 0.001), metal, 0.01, -0.01, -0.18));
+  }
+  const muzzle = new THREE.Object3D();
+  muzzle.position.set(0.01, -0.01, kind === "crowbar" ? -0.45 : -0.32);
+  root.add(muzzle);
+  return { root, muzzle, sightHeight: 0.02 };
+}
+
 /** Gloved shooting hands in a thumbs-forward two-hand grip. */
 export function buildHands(): { right: THREE.Group; left: THREE.Group } {
   const right = new THREE.Group();
