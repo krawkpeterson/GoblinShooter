@@ -85,6 +85,11 @@ export class Hud {
     $(this.el, ".wave-t").textContent = `/ ${total}`;
   }
 
+  setMission(main: string, sub: string) {
+    $(this.el, ".wave-n").textContent = main;
+    $(this.el, ".wave-t").textContent = sub;
+  }
+
   setEnemies(n: number) {
     $(this.el, ".enemy-n").textContent = String(n);
   }

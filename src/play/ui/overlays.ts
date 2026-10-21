@@ -66,8 +66,11 @@ export class EndOverlay {
   ) {
     const acc = stats.shots ? Math.round((stats.hits / stats.shots) * 100) : 0;
     const mins = Math.floor(stats.durationSec / 60), secs = Math.round(stats.durationSec % 60);
+    const survival = stats.mode === "survival";
     const roast = victory
       ? "Sgt. Grimsby grudgingly admits you didn't completely embarrass the corps."
+      : survival && stats.durationSec >= 120
+        ? `You held ${world.place.name} for ${mins}m ${secs}s. The swarm still wants more.`
       : stats.kills === 0
         ? "Zero kills. The goblins are leaving you a five-star Yelp review: \"Delicious. Didn't fight back.\""
         : stats.kills < 5
@@ -77,14 +80,14 @@ export class EndOverlay {
     this.el.className = `overlay ${victory ? "end-win" : "end-dead"}`;
     this.el.innerHTML = `
       <div class="overlay-card panel">
-        <h2>${victory ? "ZIP CODE LIBERATED" : "YOU GOT GOBLINED"}</h2>
-        <div class="sub">${escapeHtml(world.place.name.toUpperCase())}, ${world.place.stateAbbr} ${world.place.zip} · ${escapeHtml(world.director.codename)}</div>
+        <h2>${victory ? "ZIP CODE LIBERATED" : survival ? "SURVIVAL ENDED" : "YOU GOT GOBLINED"}</h2>
+        <div class="sub">${escapeHtml(world.place.name.toUpperCase())}, ${world.place.stateAbbr} ${world.place.zip} · ${escapeHtml(world.director.codename)}${survival ? " · SURVIVAL" : ""}</div>
         <div class="end-stats">
           <div><b>${stats.score.toLocaleString()}</b><span>SCORE</span></div>
           <div><b>${stats.kills}</b><span>GOBLINS KILLED</span></div>
           <div><b>${stats.headshots}</b><span>HEADSHOTS</span></div>
           <div><b>${acc}%</b><span>ACCURACY</span></div>
-          <div><b>${stats.wave}/${world.director.waves}</b><span>WAVE</span></div>
+          <div><b>${survival ? `${mins}:${String(secs).padStart(2, "0")}` : `${stats.wave}/${world.director.waves}`}</b><span>${survival ? "SURVIVED" : "WAVE"}</span></div>
           <div><b>${mins}:${String(secs).padStart(2, "0")}</b><span>TIME</span></div>
         </div>
         <p style="color:#b9c4ce;font-size:15px">${roast}</p>
