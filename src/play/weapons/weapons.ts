@@ -3,12 +3,26 @@ import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import type { AudioEngine, GunKind } from "../audio/audio.ts";
 import type { Input } from "../engine/input.ts";
 import type { Player } from "../player/player.ts";
-import { buildAnaconda, buildHands, buildM1911, buildRugerRedhawk, buildWinchester12, type AnacondaModel, type M1911Model, type WinchesterModel } from "./models.ts";
+import {
+  buildAnaconda,
+  buildHands,
+  buildM1911,
+  buildM60,
+  buildPrecisionRifle,
+  buildRugerRedhawk,
+  buildWinchester12,
+  type AnacondaModel,
+  type M1911Model,
+  type M60Model,
+  type PrecisionModel,
+  type WinchesterModel,
+} from "./models.ts";
 
-export type LoadoutId = 0 | 1;
+export type LoadoutId = 0 | 1 | 2;
 export const LOADOUTS: { id: LoadoutId; guns: [GunKind, GunKind]; title: string }[] = [
   { id: 0, guns: ["m1911", "anaconda"], title: "ALPHA" },
   { id: 1, guns: ["ruger", "winchester"], title: "BRAVO" },
+  { id: 2, guns: ["precision", "m60"], title: "CHARLIE" },
 ];
 
 export interface WeaponDef {
@@ -29,6 +43,8 @@ export interface WeaponDef {
   adsFov: number;
   range: number;
   pellets?: number;
+  fullAuto?: boolean;
+  boltAction?: boolean;
 }
 
 export const WEAPONS: Record<GunKind, WeaponDef> = {
@@ -105,6 +121,44 @@ export const WEAPONS: Record<GunKind, WeaponDef> = {
     range: 36,
     pellets: 9,
   },
+  precision: {
+    id: "precision",
+    name: "RUGER PRECISION",
+    sub: "6.5 CREEDMOOR · BOLT · 10 RDS",
+    mag: 10,
+    reserve: 40,
+    damage: 210,
+    headMult: 2.8,
+    interval: 1.35,
+    spreadHip: 0.028,
+    spreadAds: 0.00035,
+    reload: 2.6,
+    reloadEmpty: 3.1,
+    penetration: 4,
+    recoil: { pitch: 0.12, yaw: 0.02, trauma: 0.45, fov: 4, back: 0.11, rot: 0.55 },
+    adsFov: 28,
+    range: 320,
+    boltAction: true,
+  },
+  m60: {
+    id: "m60",
+    name: "M60 MACHINE GUN",
+    sub: "7.62×51 NATO · 100 RD BOX · FULL AUTO",
+    mag: 100,
+    reserve: 200,
+    damage: 38,
+    headMult: 1.9,
+    interval: 0.1,
+    spreadHip: 0.042,
+    spreadAds: 0.018,
+    reload: 4.2,
+    reloadEmpty: 4.2,
+    penetration: 2,
+    recoil: { pitch: 0.038, yaw: 0.028, trauma: 0.22, fov: 1.8, back: 0.04, rot: 0.35 },
+    adsFov: 58,
+    range: 140,
+    fullAuto: true,
+  },
 };
 
 interface Spring { v: number; vel: number }
@@ -146,6 +200,8 @@ export class WeaponSystem {
   private anaconda?: AnacondaModel;
   private ruger?: AnacondaModel;
   private winchester?: WinchesterModel;
+  private precision?: PrecisionModel;
+  private m60?: M60Model;
   private flash: THREE.Mesh;
   private flashLife = 0;
   private kickZ: Spring = { v: 0, vel: 0 };
@@ -159,6 +215,7 @@ export class WeaponSystem {
   private cylAngle = 0;
   private cylTarget = 0;
   private hammerBack = 0;
+  private boltT = 0;
   private time = 0;
   private ejected = false;
   private chamberedAfterReload = false;
@@ -205,11 +262,21 @@ export class WeaponSystem {
         hands.right.position.set(0, 0, 0.008);
         hands.left.position.set(0, -0.002, 0.008);
         roots.set(id, this.ruger.root);
-      } else {
+      } else if (id === "winchester") {
         this.winchester = buildWinchester12();
         this.winchester.root.add(hands.right, hands.left);
         hands.left.position.set(-0.01, -0.01, -0.04);
         roots.set(id, this.winchester.root);
+      } else if (id === "precision") {
+        this.precision = buildPrecisionRifle();
+        this.precision.root.add(hands.right, hands.left);
+        hands.left.position.set(-0.02, -0.02, -0.08);
+        roots.set(id, this.precision.root);
+      } else {
+        this.m60 = buildM60();
+        this.m60.root.add(hands.right, hands.left);
+        hands.left.position.set(-0.02, -0.02, -0.06);
+        roots.set(id, this.m60.root);
       }
     }
 
@@ -281,13 +348,14 @@ export class WeaponSystem {
 
   addReserve(id: GunKind, n: number) {
     const g = this.guns.find((x) => x.def.id === id);
-    if (!g) return;
-    g.reserve = Math.min(g.reserve + n, 90);
+    if (!g || !Number.isFinite(g.reserve)) return;
+    g.reserve = Math.min(g.reserve + n, Math.max(90, g.def.reserve * 2));
   }
 
   addSecondaryReserve(n: number) {
     const g = this.guns[1] ?? this.guns[0];
-    g.reserve = Math.min(g.reserve + n, 90);
+    if (!Number.isFinite(g.reserve)) return;
+    g.reserve = Math.min(g.reserve + n, Math.max(90, g.def.reserve * 2));
   }
 
   refill() {
@@ -369,7 +437,8 @@ export class WeaponSystem {
       this.setState("idle", 0);
     }
 
-    if (player.alive && this.canFire && (input.firePressed || (input.touch && input.fireHeld))) this.tryFire(now);
+    const auto = !!this.def.fullAuto;
+    if (player.alive && this.canFire && (input.firePressed || ((auto || input.touch) && input.fireHeld))) this.tryFire(now);
     if (this.state === "idle" && this.gun.ammo === 0 && this.gun.reserve > 0 && now > this.nextFireAt + 0.25) this.startReload();
 
     this.animate(dt, input, player);
@@ -392,9 +461,10 @@ export class WeaponSystem {
     const r = g.def.recoil;
     this.kickZ.vel += r.back * 60;
     this.kickRot.vel += r.rot * 40;
-    this.bloom = Math.min(0.09, this.bloom + r.pitch * 0.55);
-    this.flashLife = this.isRevolver(g.def.id) || g.def.id === "winchester" ? 0.06 : 0.04;
+    this.bloom = Math.min(g.def.fullAuto ? 0.14 : 0.09, this.bloom + r.pitch * (g.def.fullAuto ? 0.35 : 0.55));
+    this.flashLife = this.isRevolver(g.def.id) || g.def.id === "winchester" || g.def.id === "m60" ? 0.06 : 0.04;
     this.hammerBack = 1;
+    if (g.def.boltAction) this.boltT = 1;
 
     if (g.def.id === "m1911" && this.m1911) {
       this.slideBack = 1;
@@ -404,10 +474,19 @@ export class WeaponSystem {
       this.onEjectShell?.(this.toWorld(ej));
     } else if (this.isRevolver(g.def.id)) {
       this.cylTarget += Math.PI / 3;
-    } else if (this.winchester) {
+    } else if (g.def.id === "winchester" && this.winchester) {
       this.slideBack = 1;
       const ej = new THREE.Vector3();
       this.winchester.ejection.getWorldPosition(ej);
+      this.onEjectShell?.(this.toWorld(ej));
+    } else if (g.def.id === "precision" && this.precision) {
+      const ej = new THREE.Vector3();
+      this.precision.ejection.getWorldPosition(ej);
+      this.onEjectShell?.(this.toWorld(ej));
+    } else if (g.def.id === "m60" && this.m60) {
+      this.slideBack = 1;
+      const ej = new THREE.Vector3();
+      this.m60.ejection.getWorldPosition(ej);
       this.onEjectShell?.(this.toWorld(ej));
     }
 
@@ -441,7 +520,17 @@ export class WeaponSystem {
   private muzzleOf(id: GunKind) {
     if (id === "m1911") return this.m1911!.muzzle;
     if (id === "winchester") return this.winchester!.muzzle;
+    if (id === "precision") return this.precision!.muzzle;
+    if (id === "m60") return this.m60!.muzzle;
     return this.revolverOf(id)!.muzzle;
+  }
+
+  private sightHeightOf(id: GunKind) {
+    if (id === "m1911") return this.m1911!.sightHeight;
+    if (id === "winchester") return this.winchester!.sightHeight;
+    if (id === "precision") return this.precision!.sightHeight;
+    if (id === "m60") return this.m60!.sightHeight;
+    return this.revolverOf(id)!.sightHeight;
   }
 
   /** Viewmodel-space point -> approximate world-space point near the real camera. */
@@ -454,16 +543,23 @@ export class WeaponSystem {
     const g = this.gun;
     const isRevolver = this.isRevolver(g.def.id);
     const shotgun = g.def.id === "winchester";
+    const longGun = shotgun || g.def.id === "precision" || g.def.id === "m60";
     const revolver = isRevolver ? this.revolverOf(g.def.id)! : null;
-    const model = shotgun ? this.winchester! : isRevolver ? revolver! : this.m1911!;
+    const muzzle = this.muzzleOf(g.def.id);
+    const sightH = this.sightHeightOf(g.def.id);
 
     spring(this.kickZ, 0, 260, 18, dt);
     spring(this.kickRot, 0, 220, 16, dt);
     this.swayX += (-input.mouseDX * 0.00025 - this.swayX) * (1 - Math.exp(-dt * 10));
     this.swayY += (input.mouseDY * 0.00025 - this.swayY) * (1 - Math.exp(-dt * 10));
 
-    const hip = new THREE.Vector3(shotgun ? 0.16 : 0.13, shotgun ? -0.16 : -0.135, shotgun ? -0.42 : -0.34);
-    const ads = new THREE.Vector3(0, -model.sightHeight, shotgun ? -0.38 : isRevolver ? -0.3 : -0.27);
+    const hip = new THREE.Vector3(
+      longGun ? 0.15 : 0.13,
+      longGun ? -0.17 : -0.135,
+      g.def.id === "m60" ? -0.48 : shotgun ? -0.42 : g.def.id === "precision" ? -0.46 : -0.34,
+    );
+    const adsZ = g.def.id === "precision" ? -0.32 : shotgun ? -0.38 : isRevolver ? -0.3 : g.def.id === "m60" ? -0.4 : -0.27;
+    const ads = new THREE.Vector3(0, -sightH, adsZ);
     const pos = hip.clone().lerp(ads, this.adsT);
     const rot = new THREE.Euler(0, 0, 0);
     const adsDamp = 1 - this.adsT * 0.85;
@@ -494,6 +590,7 @@ export class WeaponSystem {
     } else if (this.state === "reload") {
       if (isRevolver) this.animateRevolverReload(t, pos, rot);
       else if (shotgun) this.animateShotgunReload(t, pos, rot);
+      else if (g.def.id === "precision" || g.def.id === "m60") this.animateRifleReload(t, pos, rot);
       else this.animatePistolReload(t, pos, rot);
     }
 
@@ -509,27 +606,48 @@ export class WeaponSystem {
       this.cylAngle += (this.cylTarget - this.cylAngle) * (1 - Math.exp(-dt * 30));
       revolver.cylinder.rotation.z = this.cylAngle;
       revolver.hammer.rotation.x = this.hammerBack * 0.15;
-    } else if (this.winchester) {
+    } else if (g.def.id === "winchester" && this.winchester) {
       this.slideBack = Math.max(0, this.slideBack - dt * 8);
       const pump = this.state === "idle" ? Math.sin(Math.min(1, this.slideBack) * Math.PI) : 0;
       this.winchester.pump.position.z = -0.16 + pump * 0.05;
       this.winchester.hammer.rotation.x = this.hammerBack * 0.2;
+    } else if (g.def.id === "precision" && this.precision) {
+      this.boltT = Math.max(0, this.boltT - dt * 1.35);
+      const b = Math.sin(Math.min(1, this.boltT) * Math.PI);
+      this.precision.bolt.position.z = 0.02 + b * 0.06;
+      this.precision.bolt.rotation.z = b * 0.9;
+    } else if (g.def.id === "m60" && this.m60) {
+      this.slideBack = Math.max(0, this.slideBack - dt * 28);
+      this.m60.bolt.position.z = 0.02 + this.slideBack * 0.025;
     }
     this.hammerBack = Math.max(0, this.hammerBack - dt * 8);
 
     if (this.flashLife > 0) {
       this.flashLife -= dt;
       const mz = new THREE.Vector3();
-      model.muzzle.getWorldPosition(mz);
+      muzzle.getWorldPosition(mz);
       this.holder.worldToLocal(mz);
       this.flash.position.copy(mz);
       this.flash.rotation.z = Math.random() * Math.PI;
-      const s = (isRevolver || shotgun ? 2.2 : 1.3) * (0.8 + Math.random() * 0.4);
+      const s = (isRevolver || shotgun || g.def.id === "m60" ? 2.2 : g.def.id === "precision" ? 1.8 : 1.3) * (0.8 + Math.random() * 0.4);
       this.flash.scale.setScalar(s);
       this.flash.visible = true;
     } else {
       this.flash.visible = false;
     }
+  }
+
+  private animateRifleReload(t: number, pos: THREE.Vector3, rot: THREE.Euler) {
+    const tilt = bell(t, 0.06, 0.9);
+    rot.x += tilt * 0.4;
+    pos.y -= tilt * 0.05;
+    pos.z += tilt * 0.04;
+    const mag = this.gun.def.id === "precision" ? this.precision?.mag : this.m60?.mag;
+    if (!mag) return;
+    if (t < 0.2) mag.position.y = 0;
+    else if (t < 0.4) mag.position.y = -easeIn((t - 0.2) / 0.2) * 0.22;
+    else if (t < 0.72) mag.position.y = -0.22 + easeOut((t - 0.4) / 0.32) * 0.22;
+    else mag.position.y = 0;
   }
 
   private animatePistolReload(t: number, pos: THREE.Vector3, rot: THREE.Euler) {
