@@ -85,7 +85,7 @@ function launch(world: WorldData, req: DeployRequest) {
   gl ??= Renderer.createWebGL(canvas);
   canvas.style.visibility = "visible";
   const lit = req.lighting === "live" ? world : { ...world, director: { ...world.director, timeOfDay: LIGHTING_HOURS[req.lighting] } };
-  const g = new Game(lit, gl, input, audio, ui, req.loadout);
+  const g = new Game(lit, gl, input, audio, ui, req.loadout, req.mode);
   game = g;
   g.hud.show(false);
   g.onEnd = (victory, stats) => {
@@ -178,7 +178,8 @@ window.__krawk = {
 
 function mostUsedWeapon(shots: Record<string, number>): "m1911" | "anaconda" {
   const id = Object.entries(shots).sort((a, b) => b[1] - a[1])[0]?.[0];
-  return id === "anaconda" || id === "ruger" ? "anaconda" : "m1911";
+  if (id === "anaconda" || id === "ruger" || id === "precision" || id === "m60") return "anaconda";
+  return "m1911";
 }
 
 showMenu();

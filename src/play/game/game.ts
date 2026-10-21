@@ -8,6 +8,7 @@ import { GoblinManager, type Goblin } from "../enemies/goblins.ts";
 import { Effects } from "../fx/effects.ts";
 import { Player } from "../player/player.ts";
 import { Hud } from "../ui/hud.ts";
+import type { GameMode } from "../ui/menu.ts";
 import { WeaponSystem, type FireEvent, type LoadoutId } from "../weapons/weapons.ts";
 import { buildCity, type Car, type CityBuild } from "../world/city.ts";
 import { CollisionWorld } from "../world/collision.ts";
@@ -25,9 +26,10 @@ export interface RunStats {
   hits: number;
   wave: number;
   durationSec: number;
-  shotsByWeapon: { m1911: number; anaconda: number; ruger: number; winchester: number };
+  shotsByWeapon: Record<string, number>;
   carsDestroyed: number;
   bestMulti: number;
+  mode: GameMode;
 }
 
 const MULTI = ["", "", "DOUBLE KILL", "TRIPLE KILL", "QUAD KILL", "GOBLINOCIDE"];
@@ -54,6 +56,7 @@ export class Game {
   wave = 0;
   private spawnQueue: HostileKind[] = [];
   private spawnT = 0;
+  private survivalResupplyAt = 45;
   private bossSpawned = false;
   private boss: Goblin | null = null;
   private raycaster = new THREE.Raycaster();
@@ -76,10 +79,8 @@ export class Game {
   private raf = 0;
   private startedAt = 0;
   photoMode = false;
-  readonly stats: RunStats = {
-    score: 0, kills: 0, headshots: 0, shots: 0, hits: 0, wave: 0, durationSec: 0,
-    shotsByWeapon: { m1911: 0, anaconda: 0, ruger: 0, winchester: 0 }, carsDestroyed: 0, bestMulti: 0,
-  };
+  readonly mode: GameMode;
+  readonly stats: RunStats;
   onEnd?: (victory: boolean, stats: RunStats) => void;
   onPauseRequest?: () => void;
 
@@ -90,7 +91,13 @@ export class Game {
     readonly audio: AudioEngine,
     uiRoot: HTMLElement,
     loadout: LoadoutId = 0,
+    mode: GameMode = "waves",
   ) {
+    this.mode = mode;
+    this.stats = {
+      score: 0, kills: 0, headshots: 0, shots: 0, hits: 0, wave: 0, durationSec: 0,
+      shotsByWeapon: {}, carsDestroyed: 0, bestMulti: 0, mode,
+    };
     this.terrain = new Terrain(world);
     this.scene.add(this.terrain.mesh, this.terrain.skirt);
     const built = buildCity(world, this.terrain, (c) => new CollisionWorld(this.terrain, c));
@@ -460,13 +467,63 @@ export class Game {
   }
 
   private beginIntermission() {
+    if (this.mode === "survival") {
+      this.startSurvival();
+      return;
+    }
     this.phase = "intermission";
     this.phaseT = 0;
     this.player.health = this.player.maxHealth;
     if (this.wave > 0) this.weapons.addSecondaryReserve(12);
   }
 
+  private startSurvival() {
+    this.phase = "wave";
+    this.phaseT = 0;
+    this.wave = 1;
+    this.stats.wave = 1;
+    this.spawnQueue = [];
+    this.spawnT = 0.4;
+    this.hud.setMission("0:00", "SURVIVAL");
+    this.hud.announce("SURVIVAL", "THE HORDE NEVER STOPS · LAST AS LONG AS YOU CAN", "");
+    this.audio.goblin("alert", 0.9, 0, 30);
+    for (let i = 0; i < 8; i++) this.spawnFromZones(this.pickSurvivalKind(0));
+  }
+
+  private pickSurvivalKind(elapsed: number): HostileKind {
+    const r = Math.random();
+    if (elapsed > 240 && r < 0.03) return "king";
+    if (elapsed > 120 && r < 0.14) return "brute";
+    if (elapsed > 60 && r < 0.22) return "shaman";
+    if (r < 0.28) return "runner";
+    if (r < 0.55) return "geezer";
+    return "grunt";
+  }
+
+  private updateSurvival(dt: number) {
+    const elapsed = Math.max(0, this.elapsed - this.startedAt);
+    const mins = Math.floor(elapsed / 60);
+    const secs = Math.floor(elapsed % 60);
+    this.hud.setMission(`${mins}:${secs.toString().padStart(2, "0")}`, "SURVIVAL");
+    this.stats.wave = Math.max(1, mins + 1);
+    const cap = Math.min(22, 10 + Math.floor(elapsed / 40));
+    this.spawnT -= dt;
+    if (this.goblins.alive.length < cap && this.spawnT <= 0) {
+      this.spawnT = Math.max(0.28, 1.05 - elapsed / 200);
+      this.spawnFromZones(this.pickSurvivalKind(elapsed));
+    }
+    if (elapsed >= this.survivalResupplyAt) {
+      this.survivalResupplyAt += 45;
+      this.weapons.addSecondaryReserve(24);
+      this.hud.announce("RESUPPLY", "+24 M60 ROUNDS", "acid");
+    }
+  }
+
   private updatePhase(dt: number) {
+    if (this.mode === "survival" && this.phase === "wave") {
+      this.updateSurvival(dt);
+      return;
+    }
     const dir = this.world.director;
     if (this.phase === "intermission") {
       const remaining = Math.ceil(6 - this.phaseT);
@@ -621,8 +678,9 @@ export class Game {
 }
 
 function weaponTagFor(weapon: string) {
-  if (weapon === "anaconda") return ".44 MAG";
-  if (weapon === "ruger") return ".44 MAG";
+  if (weapon === "anaconda" || weapon === "ruger") return ".44 MAG";
   if (weapon === "winchester") return "12 GAUGE";
+  if (weapon === "precision") return "6.5 CM";
+  if (weapon === "m60") return "7.62 NATO";
   return ".45 ACP";
 }
