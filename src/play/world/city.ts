@@ -15,28 +15,84 @@ function windowTextures(urban: boolean) {
   lit.width = lit.height = S;
   const b = base.getContext("2d")!;
   const l = lit.getContext("2d")!;
-  b.fillStyle = "#f2efe9";
+  // Neutral plaster so vertex colors drive facade material.
+  b.fillStyle = "#f4f1ea";
   b.fillRect(0, 0, S, S);
   l.fillStyle = "#000";
   l.fillRect(0, 0, S, S);
+
+  // Fine mortar / weathering noise baked once — multiplies with vertex colors.
+  const img = b.getImageData(0, 0, S, S);
+  const d = img.data;
+  for (let p = 0; p < d.length; p += 4) {
+    const n = ((Math.sin(p * 0.013) * 43758.5453) % 1 + 1) % 1;
+    const v = 0.92 + n * 0.14;
+    d[p] = Math.min(255, d[p] * v);
+    d[p + 1] = Math.min(255, d[p + 1] * v);
+    d[p + 2] = Math.min(255, d[p + 2] * (0.96 + n * 0.08));
+  }
+  b.putImageData(img, 0, 0);
+
   for (let i = 0; i < WIN_CELLS; i++) {
     for (let j = 0; j < WIN_CELLS; j++) {
       const x = i * cell, y = j * cell;
-      b.fillStyle = "rgba(0,0,0,0.05)";
-      b.fillRect(x, y + cell - 6, cell, 6);
-      const wx = x + cell * 0.22, wy = y + cell * 0.2, ww = cell * 0.56, wh = cell * 0.55;
-      const g = b.createLinearGradient(wx, wy, wx + ww, wy + wh);
-      g.addColorStop(0, "#2c3a48");
-      g.addColorStop(0.5, "#4f6478");
-      g.addColorStop(1, "#1d2732");
+      const brick = (i + j) % 3 !== 0;
+      if (brick) {
+        b.fillStyle = "rgba(40, 28, 18, 0.07)";
+        const rows = 4, cols = 3;
+        for (let ry = 0; ry < rows; ry++) {
+          const oy = (ry % 2) * (cell / cols) * 0.5;
+          for (let cx = -1; cx <= cols; cx++) {
+            b.fillRect(x + oy + cx * (cell / cols) + 1, y + ry * (cell / rows) + 1, cell / cols - 2, cell / rows - 2);
+          }
+        }
+      }
+      // Ledge / sill shadow under each story band.
+      b.fillStyle = "rgba(0,0,0,0.12)";
+      b.fillRect(x, y + cell - 5, cell, 5);
+      b.fillStyle = "rgba(255,255,255,0.08)";
+      b.fillRect(x, y + cell - 6, cell, 1);
+
+      const wx = x + cell * 0.18, wy = y + cell * 0.16, ww = cell * 0.64, wh = cell * 0.58;
+      // Deep frame
+      b.fillStyle = "#1a222c";
+      b.fillRect(wx - 3, wy - 3, ww + 6, wh + 6);
+      b.fillStyle = "#3a4552";
+      b.fillRect(wx - 1, wy - 1, ww + 2, wh + 2);
+      const g = b.createLinearGradient(wx, wy, wx + ww * 0.3, wy + wh);
+      g.addColorStop(0, "#5a7288");
+      g.addColorStop(0.35, "#2a3848");
+      g.addColorStop(0.7, "#1a2430");
+      g.addColorStop(1, "#0e141c");
       b.fillStyle = g;
       b.fillRect(wx, wy, ww, wh);
-      b.fillStyle = "rgba(255,255,255,0.18)";
-      b.fillRect(wx + ww * 0.48, wy, 2, wh);
-      if (Math.random() < (urban ? 0.42 : 0.28)) {
-        const warm = Math.random() < 0.8;
-        l.fillStyle = warm ? `hsl(${36 + Math.random() * 14}, 95%, ${55 + Math.random() * 20}%)` : "#bfe4ff";
+      // Mullions
+      b.fillStyle = "rgba(220,230,240,0.22)";
+      b.fillRect(wx + ww * 0.48, wy + 2, 2, wh - 4);
+      b.fillRect(wx + 2, wy + wh * 0.48, ww - 4, 2);
+      // Specular streak
+      b.fillStyle = "rgba(255,255,255,0.14)";
+      b.fillRect(wx + 3, wy + 3, ww * 0.18, wh - 6);
+      // Blind / shade on some panes
+      if (Math.random() < 0.35) {
+        b.fillStyle = `rgba(${60 + Math.random() * 40},${50 + Math.random() * 30},${40},0.55)`;
+        b.fillRect(wx + 2, wy + 2, ww - 4, wh * (0.25 + Math.random() * 0.4));
+      }
+      if (Math.random() < (urban ? 0.48 : 0.3)) {
+        const warm = Math.random() < 0.78;
+        const hue = warm ? 34 + Math.random() * 18 : 195 + Math.random() * 20;
+        const light = warm ? 52 + Math.random() * 22 : 58 + Math.random() * 16;
+        l.fillStyle = `hsl(${hue}, ${warm ? 92 : 70}%, ${light}%)`;
         l.fillRect(wx, wy, ww, wh);
+        // Soft interior glow bleed
+        l.fillStyle = `hsla(${hue}, 90%, ${light + 10}%, 0.35)`;
+        l.fillRect(wx - 2, wy - 2, ww + 4, wh + 4);
+        // Curtain silhouette
+        if (Math.random() < 0.4) {
+          l.fillStyle = "rgba(20,12,8,0.35)";
+          l.fillRect(wx + ww * 0.05, wy, ww * 0.22, wh);
+          l.fillRect(wx + ww * 0.72, wy, ww * 0.22, wh);
+        }
       }
     }
   }
@@ -62,26 +118,26 @@ function wallColor(b: Building, biome: string, r: number): THREE.Color {
   const pick = (arr: string[]) => new THREE.Color(arr[Math.floor(r * arr.length) % arr.length]);
   switch (b.kind) {
     case "commercial": case "office": case "retail":
-      return pick(["#9aa6b2", "#7d8b99", "#b9b2a5", "#6c7a86", "#a8b8c4"]);
+      return pick(["#a8b4c0", "#8a98a6", "#c4bdb0", "#748290", "#b4c4d0", "#9a9088"]);
     case "industrial": case "warehouse":
-      return pick(["#8c8a83", "#9b968a", "#7a7f84", "#a39f94"]);
+      return pick(["#96948c", "#a8a296", "#828890", "#b0aa9e", "#6e7278"]);
     case "church": case "cathedral":
-      return pick(["#d8cdb8", "#bfae95"]);
+      return pick(["#e4d8c4", "#cbb89e", "#d2c6b0"]);
     case "apartments":
-      return pick(["#c9b9a3", "#d4cfc6", "#b08f76", "#9fa7ad", "#e0d6c4"]);
+      return pick(["#d4c4ae", "#e0dbd2", "#bc9a80", "#aab2b8", "#eadfc8", "#c8b8a4"]);
     default:
       return desert
-        ? pick(["#d9b98f", "#cfa77c", "#e2cba6", "#c49a6c", "#e8dcc3"])
-        : pick(["#e9e3d6", "#d8c8b0", "#c9b8a0", "#f0ece4", "#b7a58c", "#d9d2c4", "#a9b3ad"]);
+        ? pick(["#e2c49a", "#d8b388", "#edd4b0", "#d0a678", "#f0e4cc"])
+        : pick(["#f0ebe0", "#e2d2bc", "#d4c4ac", "#f6f2ea", "#c4b298", "#e4ddd0", "#b8c2bc", "#d8c8b4"]);
   }
 }
 
 function roofColor(house: boolean, biome: string, r: number): THREE.Color {
-  if (!house) return new THREE.Color(["#7b7b78", "#8e8d88", "#6c6e70", "#a09d95"][Math.floor(r * 4)]);
+  if (!house) return new THREE.Color(["#6e6e6c", "#82807c", "#5c5e60", "#949188", "#787470"][Math.floor(r * 5)]);
   return new THREE.Color(
     biome === "desert" || biome === "coastal" || biome === "urban"
-      ? ["#a8553a", "#b8623f", "#8f4a35", "#5c5650"][Math.floor(r * 4)]
-      : ["#4b4743", "#5c534b", "#3e4247", "#6b3d32"][Math.floor(r * 4)],
+      ? ["#b85c3e", "#c86e48", "#9a5238", "#68625c", "#a84832"][Math.floor(r * 5)]
+      : ["#45413e", "#564e46", "#383c42", "#743c32", "#4a4844"][Math.floor(r * 5)],
   );
 }
 
@@ -158,16 +214,19 @@ export function buildCity(world: WorldData, terrain: Terrain, collision: (c: Bui
       const doorW = Math.min(1.35, len * 0.28);
       const doorH = Math.min(2.25, (top - floorY) * 0.72);
       const uv = (u: number, v: number) => [u / 3.6 / WIN_CELLS, v];
-      const pushWall = (ax0: number, az0: number, bx0: number, bz0: number, y0: number, y1: number, u0: number, u1: number) => {
+      const pushWall = (ax0: number, az0: number, bx0: number, bz0: number, y0: number, y1: number, u0: number, u1: number, tint = 1) => {
         const a0 = [ax0, y0, az0], b0 = [bx0, y0, bz0], b1 = [bx0, y1, bz0], a1 = [ax0, y1, az0];
         const v0 = (y0 - base) / 3.4 / WIN_CELLS, v1 = (y1 - base) / 3.4 / WIN_CELLS;
         const tri = [a0, b0, b1, a0, b1, a1];
         const tuv = [uv(u0, v0), uv(u1, v0), uv(u1, v1), uv(u0, v0), uv(u1, v1), uv(u0, v1)];
+        const ys = [y0, y0, y1, y0, y1, y1];
         for (let k = 0; k < 6; k++) {
+          const found = ys[k] < floorY + 0.55 ? 0.72 : 1;
+          const t = shade * tint * found;
           walls.pos.push(...tri[k]);
           walls.nor.push(nx, 0, nz);
           walls.uv.push(...tuv[k]);
-          walls.col.push(wc.r * shade, wc.g * shade, wc.b * shade);
+          walls.col.push(wc.r * t, wc.g * t, wc.b * t);
         }
       };
       if (doorEdge) {
@@ -178,6 +237,9 @@ export function buildCity(world: WorldData, terrain: Terrain, collision: (c: Bui
         pushWall(A[0], A[1], sx, sz, base, top, uA, uS);
         pushWall(ex, ez, B[0], B[1], base, top, uE, uB);
         pushWall(sx, sz, ex, ez, floorY + doorH, top, uS, uE);
+        // Dark jamb strips framing the open doorway.
+        pushWall(sx, sz, sx + (ex - sx) * 0.08, sz + (ez - sz) * 0.08, floorY, floorY + doorH, uS, uS + (uE - uS) * 0.08, 0.42);
+        pushWall(ex - (ex - sx) * 0.08, ez - (ez - sz) * 0.08, ex, ez, floorY, floorY + doorH, uE - (uE - uS) * 0.08, uE, 0.42);
       } else {
         pushWall(A[0], A[1], B[0], B[1], base, top, uA, uB);
       }
@@ -185,18 +247,28 @@ export function buildCity(world: WorldData, terrain: Terrain, collision: (c: Bui
     }
 
     const rc = roofColor(house, biome, r());
-    const pushRoof = (p: number[][], n: THREE.Vector3) => {
+    const pushRoof = (p: number[][], n: THREE.Vector3, tint = 1) => {
       for (const v of p) {
         roofs.pos.push(...v);
         roofs.nor.push(n.x, n.y, n.z);
-        roofs.col.push(rc.r, rc.g, rc.b);
+        roofs.col.push(rc.r * tint, rc.g * tint, rc.b * tint);
       }
     };
+    const pushRoofBox = (x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, tint = 1) => {
+      const faces: [number[][], THREE.Vector3][] = [
+        [[[x0, y0, z0], [x1, y0, z0], [x1, y1, z0], [x0, y0, z0], [x1, y1, z0], [x0, y1, z0]], new THREE.Vector3(0, 0, -1)],
+        [[[x1, y0, z1], [x0, y0, z1], [x0, y1, z1], [x1, y0, z1], [x0, y1, z1], [x1, y1, z1]], new THREE.Vector3(0, 0, 1)],
+        [[[x0, y0, z1], [x0, y0, z0], [x0, y1, z0], [x0, y0, z1], [x0, y1, z0], [x0, y1, z1]], new THREE.Vector3(-1, 0, 0)],
+        [[[x1, y0, z0], [x1, y0, z1], [x1, y1, z1], [x1, y0, z0], [x1, y1, z1], [x1, y1, z0]], new THREE.Vector3(1, 0, 0)],
+        [[[x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z0], [x1, y1, z1], [x0, y1, z1]], new THREE.Vector3(0, 1, 0)],
+      ];
+      for (const [tris, n] of faces) pushRoof(tris, n, tint);
+    };
+    let cx = 0, cz = 0;
+    for (const [x, z] of pts) { cx += x; cz += z; }
+    cx /= pts.length;
+    cz /= pts.length;
     if (house) {
-      let cx = 0, cz = 0;
-      for (const [x, z] of pts) { cx += x; cz += z; }
-      cx /= pts.length;
-      cz /= pts.length;
       const apex = [cx, top + Math.min(3.2, Math.sqrt(area) * 0.22), cz];
       for (let i = 0; i < pts.length; i++) {
         const pa = [pts[i][0], top, pts[i][1]], pb = [pts[(i + 1) % pts.length][0], top, pts[(i + 1) % pts.length][1]];
@@ -208,13 +280,38 @@ export function buildCity(world: WorldData, terrain: Terrain, collision: (c: Bui
         if (n.y < 0) pushRoof([pb, pa, apex], n.negate());
         else pushRoof([pa, pb, apex], n);
       }
+      if (r() < 0.55) {
+        const ch = 1.1 + r() * 0.7;
+        const hw = 0.28 + r() * 0.12;
+        pushRoofBox(cx + 0.6 - hw, top + 0.4, cz - 0.4 - hw, cx + 0.6 + hw, top + 0.4 + ch, cz - 0.4 + hw, 0.82);
+      }
     } else {
       fanRoof(pts, top, (p, n) => pushRoof(p, n));
+      // Parapet / cornice — cheap silhouette for commercial blocks.
+      const parapet = Math.min(0.7, 0.35 + Math.min(1.2, Math.sqrt(area) * 0.02));
+      for (let i = 0; i < pts.length; i++) {
+        const [ax, az] = pts[i], [bx, bz] = pts[(i + 1) % pts.length];
+        const len = Math.hypot(bx - ax, bz - az);
+        if (len < 0.4) continue;
+        let nx = (bz - az) / len, nz = -(bx - ax) / len;
+        if (flip) { nx = -nx; nz = -nz; }
+        const inset = 0.12;
+        const ax0 = ax - nx * inset, az0 = az - nz * inset;
+        const bx0 = bx - nx * inset, bz0 = bz - nz * inset;
+        const a0 = [ax0, top, az0], b0 = [bx0, top, bz0], b1 = [bx0, top + parapet, bz0], a1 = [ax0, top + parapet, az0];
+        pushRoof([a0, b0, b1, a0, b1, a1], new THREE.Vector3(nx, 0, nz), 0.78);
+        const ox = ax + nx * 0.02, oz = az + nz * 0.02, px = bx + nx * 0.02, pz = bz + nz * 0.02;
+        pushRoof(
+          [[ax0, top + parapet, az0], [bx0, top + parapet, bz0], [px, top + parapet, pz], [ax0, top + parapet, az0], [px, top + parapet, pz], [ox, top + parapet, oz]],
+          new THREE.Vector3(0, 1, 0),
+          0.88,
+        );
+      }
     }
     if (enterable) {
       fanRoof(pts, floorY + 0.04, (p, n) => {
         const up = n.y >= 0 ? n : n.clone().negate();
-        pushRoof(p.map((v) => [v[0], floorY + 0.04, v[2]]), up);
+        pushRoof(p.map((v) => [v[0], floorY + 0.04, v[2]]), up, 0.55);
       });
     }
     const door = enterable ? doorOnLongest(pts, Math.min(2.25, (top - floorY) * 0.72)) : undefined;
