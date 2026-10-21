@@ -8,21 +8,26 @@ import {
   buildHands,
   buildM1911,
   buildM60,
+  buildMinePuck,
   buildPrecisionRifle,
+  buildRocketLauncher,
   buildRugerRedhawk,
   buildWinchester12,
   type AnacondaModel,
   type M1911Model,
   type M60Model,
+  type MineModel,
   type PrecisionModel,
+  type RocketModel,
   type WinchesterModel,
 } from "./models.ts";
 
-export type LoadoutId = 0 | 1 | 2;
+export type LoadoutId = 0 | 1 | 2 | 3;
 export const LOADOUTS: { id: LoadoutId; guns: [GunKind, GunKind]; title: string }[] = [
   { id: 0, guns: ["m1911", "anaconda"], title: "ALPHA" },
   { id: 1, guns: ["ruger", "winchester"], title: "BRAVO" },
   { id: 2, guns: ["precision", "m60"], title: "CHARLIE" },
+  { id: 3, guns: ["rocket", "mine"], title: "DELTA" },
 ];
 
 export interface WeaponDef {
@@ -45,6 +50,8 @@ export interface WeaponDef {
   pellets?: number;
   fullAuto?: boolean;
   boltAction?: boolean;
+  /** Non-hitscan: rocket projectile or plantable mine. */
+  ordnance?: "rocket" | "mine";
 }
 
 export const WEAPONS: Record<GunKind, WeaponDef> = {
@@ -124,16 +131,16 @@ export const WEAPONS: Record<GunKind, WeaponDef> = {
   precision: {
     id: "precision",
     name: "RUGER PRECISION",
-    sub: "6.5 CREEDMOOR · LPVO · BOLT · 10 RDS",
-    mag: 10,
-    reserve: 40,
+    sub: "6.5 CREEDMOOR · LPVO · SINGLE SHOT BOLT",
+    mag: 1,
+    reserve: 24,
     damage: 210,
     headMult: 2.8,
-    interval: 1.35,
+    interval: 0.35,
     spreadHip: 0.028,
     spreadAds: 0.0002,
-    reload: 2.6,
-    reloadEmpty: 3.1,
+    reload: 1.55,
+    reloadEmpty: 1.55,
     penetration: 4,
     recoil: { pitch: 0.12, yaw: 0.02, trauma: 0.45, fov: 4, back: 0.11, rot: 0.55 },
     adsFov: 48,
@@ -158,6 +165,44 @@ export const WEAPONS: Record<GunKind, WeaponDef> = {
     adsFov: 58,
     range: 140,
     fullAuto: true,
+  },
+  rocket: {
+    id: "rocket",
+    name: "M72 LAW",
+    sub: "66mm HEAT · SINGLE SHOT TUBE",
+    mag: 1,
+    reserve: 8,
+    damage: 420,
+    headMult: 1,
+    interval: 0.5,
+    spreadHip: 0.012,
+    spreadAds: 0.004,
+    reload: 2.4,
+    reloadEmpty: 2.4,
+    penetration: 1,
+    recoil: { pitch: 0.18, yaw: 0.04, trauma: 0.7, fov: 6, back: 0.16, rot: 0.8 },
+    adsFov: 52,
+    range: 200,
+    ordnance: "rocket",
+  },
+  mine: {
+    id: "mine",
+    name: "CLAYMORE MINE",
+    sub: "PROXIMITY · PLANT & FORGET",
+    mag: 1,
+    reserve: 10,
+    damage: 280,
+    headMult: 1,
+    interval: 0.4,
+    spreadHip: 0,
+    spreadAds: 0,
+    reload: 1.2,
+    reloadEmpty: 1.2,
+    penetration: 1,
+    recoil: { pitch: 0.02, yaw: 0.01, trauma: 0.08, fov: 0.5, back: 0.02, rot: 0.1 },
+    adsFov: 70,
+    range: 4,
+    ordnance: "mine",
   },
 };
 
@@ -205,6 +250,8 @@ export class WeaponSystem {
   private winchester?: WinchesterModel;
   private precision?: PrecisionModel;
   private m60?: M60Model;
+  private rocket?: RocketModel;
+  private mine?: MineModel;
   private flash: THREE.Mesh;
   private flashLife = 0;
   private kickZ: Spring = { v: 0, vel: 0 };
@@ -277,11 +324,21 @@ export class WeaponSystem {
         this.precision.root.add(hands.right, hands.left);
         hands.left.position.set(-0.02, -0.02, -0.08);
         roots.set(id, this.precision.root);
-      } else {
+      } else if (id === "m60") {
         this.m60 = buildM60();
         this.m60.root.add(hands.right, hands.left);
         hands.left.position.set(-0.02, -0.02, -0.06);
         roots.set(id, this.m60.root);
+      } else if (id === "rocket") {
+        this.rocket = buildRocketLauncher();
+        this.rocket.root.add(hands.right, hands.left);
+        hands.left.position.set(-0.03, -0.02, -0.1);
+        roots.set(id, this.rocket.root);
+      } else {
+        this.mine = buildMinePuck();
+        this.mine.root.add(hands.right, hands.left);
+        hands.left.position.set(-0.02, -0.02, -0.04);
+        roots.set(id, this.mine.root);
       }
     }
 
@@ -482,7 +539,7 @@ export class WeaponSystem {
     this.kickZ.vel += r.back * 60;
     this.kickRot.vel += r.rot * 40;
     this.bloom = Math.min(g.def.fullAuto ? 0.14 : 0.09, this.bloom + r.pitch * (g.def.fullAuto ? 0.35 : 0.55));
-    this.flashLife = this.isRevolver(g.def.id) || g.def.id === "winchester" || g.def.id === "m60" ? 0.06 : 0.04;
+    this.flashLife = this.isRevolver(g.def.id) || g.def.id === "winchester" || g.def.id === "m60" || g.def.id === "rocket" ? 0.06 : g.def.id === "mine" ? 0 : 0.04;
     this.hammerBack = 1;
     if (g.def.boltAction) this.boltT = 1;
 
@@ -542,6 +599,8 @@ export class WeaponSystem {
     if (id === "winchester") return this.winchester!.muzzle;
     if (id === "precision") return this.precision!.muzzle;
     if (id === "m60") return this.m60!.muzzle;
+    if (id === "rocket") return this.rocket!.muzzle;
+    if (id === "mine") return this.mine!.muzzle;
     return this.revolverOf(id)!.muzzle;
   }
 
@@ -550,6 +609,8 @@ export class WeaponSystem {
     if (id === "winchester") return this.winchester!.sightHeight;
     if (id === "precision") return this.precision!.sightHeight;
     if (id === "m60") return this.m60!.sightHeight;
+    if (id === "rocket") return this.rocket!.sightHeight;
+    if (id === "mine") return this.mine!.sightHeight;
     return this.revolverOf(id)!.sightHeight;
   }
 
@@ -563,7 +624,7 @@ export class WeaponSystem {
     const g = this.gun;
     const isRevolver = this.isRevolver(g.def.id);
     const shotgun = g.def.id === "winchester";
-    const longGun = shotgun || g.def.id === "precision" || g.def.id === "m60";
+    const longGun = shotgun || g.def.id === "precision" || g.def.id === "m60" || g.def.id === "rocket";
     const revolver = isRevolver ? this.revolverOf(g.def.id)! : null;
     const muzzle = this.muzzleOf(g.def.id);
     const sightH = this.sightHeightOf(g.def.id);
@@ -574,11 +635,11 @@ export class WeaponSystem {
     this.swayY += (input.mouseDY * 0.00025 - this.swayY) * (1 - Math.exp(-dt * 10));
 
     const hip = new THREE.Vector3(
-      longGun ? 0.15 : 0.13,
-      longGun ? -0.17 : -0.135,
-      g.def.id === "m60" ? -0.48 : shotgun ? -0.42 : g.def.id === "precision" ? -0.46 : -0.34,
+      longGun ? 0.15 : g.def.id === "mine" ? 0.12 : 0.13,
+      longGun ? -0.17 : g.def.id === "mine" ? -0.14 : -0.135,
+      g.def.id === "m60" || g.def.id === "rocket" ? -0.48 : shotgun ? -0.42 : g.def.id === "precision" ? -0.46 : g.def.id === "mine" ? -0.3 : -0.34,
     );
-    const adsZ = g.def.id === "precision" ? -0.32 : shotgun ? -0.38 : isRevolver ? -0.3 : g.def.id === "m60" ? -0.4 : -0.27;
+    const adsZ = g.def.id === "precision" ? -0.32 : shotgun ? -0.38 : isRevolver ? -0.3 : g.def.id === "m60" || g.def.id === "rocket" ? -0.4 : -0.27;
     const ads = new THREE.Vector3(0, -sightH, adsZ);
     const pos = hip.clone().lerp(ads, this.adsT);
     const rot = new THREE.Euler(0, 0, 0);
@@ -610,7 +671,7 @@ export class WeaponSystem {
     } else if (this.state === "reload") {
       if (isRevolver) this.animateRevolverReload(t, pos, rot);
       else if (shotgun) this.animateShotgunReload(t, pos, rot);
-      else if (g.def.id === "precision" || g.def.id === "m60") this.animateRifleReload(t, pos, rot);
+      else if (g.def.id === "precision" || g.def.id === "m60" || g.def.id === "rocket" || g.def.id === "mine") this.animateRifleReload(t, pos, rot);
       else this.animatePistolReload(t, pos, rot);
     }
 
@@ -665,7 +726,7 @@ export class WeaponSystem {
     rot.x += tilt * 0.4;
     pos.y -= tilt * 0.05;
     pos.z += tilt * 0.04;
-    const mag = this.gun.def.id === "precision" ? this.precision?.mag : this.m60?.mag;
+    const mag = this.gun.def.id === "precision" ? this.precision?.mag : this.gun.def.id === "m60" ? this.m60?.mag : undefined;
     if (!mag) return;
     if (t < 0.2) mag.position.y = 0;
     else if (t < 0.4) mag.position.y = -easeIn((t - 0.2) / 0.2) * 0.22;
