@@ -104,7 +104,7 @@ export class Game {
     }
     this.camera.far = world.stats.buildings > 400 ? 380 : 520;
     this.camera.updateProjectionMatrix();
-    this.city.windowMaterial.emissiveIntensity = this.sky.night * 0.75;
+    this.city.windowMaterial.emissiveIntensity = this.sky.night * 0.95;
     gl.toneMappingExposure = 1 + this.sky.night * 0.45;
 
     this.fx = new Effects((x, z) => this.collision.groundAt(x, z));
