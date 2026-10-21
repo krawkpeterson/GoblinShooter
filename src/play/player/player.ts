@@ -98,14 +98,16 @@ export class Player {
       return;
     }
 
-    let fx = 0, fz = 0;
+    let fx = input.moveX, fz = input.moveZ;
     if (input.down("KeyW")) fz += 1;
     if (input.down("KeyS")) fz -= 1;
     if (input.down("KeyD")) fx += 1;
     if (input.down("KeyA")) fx -= 1;
+    const stickLen = Math.hypot(fx, fz);
+    if (stickLen > 1) { fx /= stickLen; fz /= stickLen; }
     const moving = fx !== 0 || fz !== 0;
     this.crouching = input.down("KeyC") || input.down("ControlLeft");
-    this.sprinting = moving && fz > 0 && input.down("ShiftLeft") && !this.ads && !this.crouching;
+    this.sprinting = moving && fz > 0.35 && input.down("ShiftLeft") && !this.ads && !this.crouching;
     const speed = this.crouching ? CROUCH : this.sprinting ? SPRINT : this.ads ? WALK * 0.6 : WALK;
 
     const sin = Math.sin(this.yaw), cos = Math.cos(this.yaw);
