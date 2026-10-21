@@ -15,6 +15,8 @@ export class Input {
   fireHeld = false;
   firePressed = false;
   adsHeld = false;
+  /** Rising edge on RMB / AIM — used for LPVO zoom cycling. */
+  adsPressed = false;
   wheel = 0;
   locked = false;
   readonly touch = detectTouch();
@@ -41,7 +43,10 @@ export class Input {
         this.fireHeld = true;
         this.firePressed = true;
       }
-      if (e.button === 2) this.adsHeld = true;
+      if (e.button === 2) {
+        this.adsHeld = true;
+        this.adsPressed = true;
+      }
     });
     document.addEventListener("mouseup", (e) => {
       if (this.touch) return;
@@ -143,6 +148,7 @@ export class Input {
     this.pressed.clear();
     this.mouseDX = this.mouseDY = 0;
     this.firePressed = false;
+    this.adsPressed = false;
     this.wheel = 0;
   }
 }

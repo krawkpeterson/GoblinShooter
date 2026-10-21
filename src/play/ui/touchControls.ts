@@ -176,6 +176,7 @@ export class TouchControls {
     this.adsBtn.addEventListener("pointerdown", (e) => {
       e.preventDefault();
       if (!this.input.locked) return;
+      this.input.adsPressed = true;
       this.input.adsHeld = !this.input.adsHeld;
       this.adsBtn.classList.toggle("held", this.input.adsHeld);
     });
