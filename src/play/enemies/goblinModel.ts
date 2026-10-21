@@ -1,8 +1,9 @@
 import * as THREE from "three";
 
 export type GoblinKind = "grunt" | "runner" | "brute" | "shaman" | "king";
-export type HostileKind = GoblinKind | "geezer";
-export type Faction = "goblin" | "geezer";
+export type DinoKind = "raptor" | "dilo" | "trex";
+export type HostileKind = GoblinKind | "geezer" | DinoKind;
+export type Faction = "goblin" | "geezer" | "dino";
 
 export interface GoblinRig {
   root: THREE.Group;
