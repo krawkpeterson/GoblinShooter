@@ -116,7 +116,7 @@ export class Menu {
                 <div class="bars"><div class="bar"><i style="width:88%"></i></div><div class="bar"><i style="width:44%"></i></div><div class="bar"><i style="width:55%"></i></div></div></div>
             </div>
             <div class="load-set" data-set="2" hidden>
-              <div class="gun-card"><div><b>RUGER PRECISION</b><span>6.5 CM · BOLT · SCOPE</span></div>
+              <div class="gun-card"><div><b>RUGER PRECISION</b><span>6.5 CM · LPVO · BOLT</span></div>
                 <div class="bars"><div class="bar"><i style="width:100%"></i></div><div class="bar"><i style="width:28%"></i></div><div class="bar"><i style="width:98%"></i></div></div></div>
               <div class="gun-card mag"><div><b>M60 MACHINE GUN</b><span>7.62 NATO · 100 RD · FULL AUTO</span></div>
                 <div class="bars"><div class="bar"><i style="width:70%"></i></div><div class="bar"><i style="width:55%"></i></div><div class="bar"><i style="width:40%"></i></div></div></div>

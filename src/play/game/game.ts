@@ -203,7 +203,7 @@ export class Game {
       wu.uTime.value = this.elapsed;
     }
     this.fx.update(dt);
-    this.player.applyCamera(this.camera, 78, this.weapons.def.adsFov);
+    this.player.applyCamera(this.camera, 78, this.weapons.adsFov);
     this.sky.update(dt, this.elapsed, this.player.pos);
 
     this.flashV *= Math.exp(-rawDt * 18);
@@ -240,8 +240,9 @@ export class Game {
     this.hud.setHealth(this.player.health, this.player.maxHealth);
     this.hud.setScore(this.stats.score, this.combo);
     this.hud.setEnemies(this.goblins.alive.length + this.spawnQueue.length);
+    this.hud.setScope(g.def.id === "precision" ? w.scopeLevel : 0);
     const moving = this.player.speed01;
-    this.hud.setSpread(4 + w.spread * 500 + moving * 10 + (this.player.onGround ? 0 : 10), w.adsAmount > 0.6);
+    this.hud.setSpread(4 + w.spread * 500 + moving * 10 + (this.player.onGround ? 0 : 10), w.adsAmount > 0.6 || w.scoped);
     this.hud.drawMinimap(
       this.player.pos.x, this.player.pos.z, this.player.yaw,
       this.goblins.goblins.filter((x) => x.state !== "dead").map((x) => ({ x: x.pos.x, z: x.pos.z, boss: x.kind === "king", geezer: x.kind === "geezer" })),
