@@ -80,7 +80,7 @@ function launch(world: WorldData, req: DeployRequest) {
   gl ??= Renderer.createWebGL(canvas);
   canvas.style.visibility = "visible";
   const lit = req.lighting === "live" ? world : { ...world, director: { ...world.director, timeOfDay: LIGHTING_HOURS[req.lighting] } };
-  const g = new Game(lit, gl, input, audio, ui, req.tutorial, req.loadout);
+  const g = new Game(lit, gl, input, audio, ui, req.loadout);
   game = g;
   g.hud.show(false);
   g.onEnd = (victory, stats) => {
@@ -88,7 +88,7 @@ function launch(world: WorldData, req: DeployRequest) {
     pause?.destroy();
     pause = null;
     const weaponMostUsed = mostUsedWeapon(stats.shotsByWeapon);
-    if (stats.tutorialShame !== null) void upsertPlayer(req.callsign, stats.tutorialShame);
+    void upsertPlayer(req.callsign);
     const submission = submitScore({
       playerId: playerId(),
       playerName: req.callsign,
@@ -105,7 +105,7 @@ function launch(world: WorldData, req: DeployRequest) {
     end = new EndOverlay(ui, victory, stats, world, submission, () => {
       end?.destroy();
       end = null;
-      launch(world, { ...req, tutorial: false });
+      launch(world, req);
     }, showMenu);
   };
 

@@ -8,7 +8,6 @@ export interface DeployRequest {
   zip: string;
   size: WorldSize;
   callsign: string;
-  tutorial: boolean;
   lighting: Lighting;
   loadout: LoadoutId;
 }
@@ -52,7 +51,6 @@ export class Menu {
     const params = new URLSearchParams(location.search);
     const savedLight = (params.get("tod") ?? localStorage.getItem("krawk.lighting")) as Lighting | null;
     if (savedLight && LIGHTINGS.some(([k]) => k === savedLight)) this.lighting = savedLight;
-    const bootcampDone = localStorage.getItem("krawk.bootcamp") === "1";
     const savedLoad = Number(localStorage.getItem("krawk.loadout"));
     if (savedLoad === 0 || savedLoad === 1) this.loadout = savedLoad;
 
@@ -83,9 +81,7 @@ export class Menu {
             <input class="callsign" maxlength="24" placeholder="MAGGOT" value="${(localStorage.getItem("krawk.callsign") ?? "").replace(/"/g, "")}" />
             <div class="menu-actions">
               <button class="btn-deploy" type="submit" disabled><span>DEPLOY</span><i class="shine"></i></button>
-              <button class="btn-ghost btn-bootcamp" type="button">BOOT CAMP</button>
             </div>
-            <label class="skip"><input type="checkbox" class="skip-cb" ${bootcampDone ? "checked" : ""} /> Skip boot camp <em>(coward)</em></label>
           </form>
         </div>
         <aside class="menu-right">
@@ -124,7 +120,6 @@ export class Menu {
     const form = this.el.querySelector<HTMLFormElement>(".deploy-form")!;
     const deployBtn = this.el.querySelector<HTMLButtonElement>(".btn-deploy")!;
     const callsign = this.el.querySelector<HTMLInputElement>(".callsign")!;
-    const skip = this.el.querySelector<HTMLInputElement>(".skip-cb")!;
 
     const setZip = (zip: string) => {
       cells.forEach((c, i) => {
@@ -200,7 +195,7 @@ export class Menu {
       }),
     );
 
-    const go = (tutorial: boolean) => {
+    const go = () => {
       this.audio.unlock();
       if (!this.validZip) {
         const wrap = this.el.querySelector(".zip-cells")!;
@@ -215,13 +210,12 @@ export class Menu {
       localStorage.setItem("krawk.callsign", name);
       this.audio.uiDeploy();
       this.bg.boost = 1;
-      onDeploy({ zip: this.validZip, size: this.size, callsign: name, tutorial, lighting: this.lighting, loadout: tutorial ? 0 : this.loadout });
+      onDeploy({ zip: this.validZip, size: this.size, callsign: name, lighting: this.lighting, loadout: this.loadout });
     };
     form.addEventListener("submit", (e) => {
       e.preventDefault();
-      go(!skip.checked);
+      go();
     });
-    this.el.querySelector(".btn-bootcamp")!.addEventListener("click", () => go(true));
     this.el.addEventListener("pointerdown", () => this.audio.unlock(), { once: true });
 
     const preset = params.get("zip");

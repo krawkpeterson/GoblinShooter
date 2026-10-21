@@ -14,9 +14,8 @@ import { CollisionWorld } from "../world/collision.ts";
 import { SkySystem } from "../world/sky.ts";
 import { Terrain } from "../world/terrain.ts";
 import { Pickups } from "./pickups.ts";
-import { Tutorial } from "./tutorial.ts";
 
-export type Phase = "intro" | "tutorial" | "intermission" | "wave" | "victory" | "dead";
+export type Phase = "intro" | "intermission" | "wave" | "victory" | "dead";
 
 export interface RunStats {
   score: number;
@@ -29,7 +28,6 @@ export interface RunStats {
   shotsByWeapon: { m1911: number; anaconda: number; ruger: number; winchester: number };
   carsDestroyed: number;
   bestMulti: number;
-  tutorialShame: number | null;
 }
 
 const MULTI = ["", "", "DOUBLE KILL", "TRIPLE KILL", "QUAD KILL", "GOBLINOCIDE"];
@@ -50,7 +48,6 @@ export class Game {
   readonly renderer: Renderer;
   readonly hud: Hud;
   readonly pickups: Pickups;
-  tutorial: Tutorial | null = null;
 
   phase: Phase = "intro";
   private phaseT = 0;
@@ -81,7 +78,7 @@ export class Game {
   photoMode = false;
   readonly stats: RunStats = {
     score: 0, kills: 0, headshots: 0, shots: 0, hits: 0, wave: 0, durationSec: 0,
-    shotsByWeapon: { m1911: 0, anaconda: 0, ruger: 0, winchester: 0 }, carsDestroyed: 0, bestMulti: 0, tutorialShame: null,
+    shotsByWeapon: { m1911: 0, anaconda: 0, ruger: 0, winchester: 0 }, carsDestroyed: 0, bestMulti: 0,
   };
   onEnd?: (victory: boolean, stats: RunStats) => void;
   onPauseRequest?: () => void;
@@ -92,7 +89,6 @@ export class Game {
     readonly input: Input,
     readonly audio: AudioEngine,
     uiRoot: HTMLElement,
-    readonly withTutorial: boolean,
     loadout: LoadoutId = 0,
   ) {
     this.terrain = new Terrain(world);
@@ -159,32 +155,13 @@ export class Game {
       this.spawnNear("geezer", x, z, 6);
     };
 
-    if (withTutorial) {
-      this.tutorial = new Tutorial(this.scene, this.player, this.weapons, this.goblins, this.hud, audio, this.collision, `${world.place.name}`);
-      this.tutorial.sightBlocked = (from, to) => {
-        const d = to.clone().sub(from);
-        const len = d.length();
-        return !!this.city.cars.raycast(from, d.normalize(), len);
-      };
-      this.tutorial.onComplete = (shame) => {
-        this.stats.tutorialShame = shame;
-        localStorage.setItem("krawk.bootcamp", "1");
-        setTimeout(() => this.beginIntermission(), 4000);
-      };
-    }
-
     this.raf = requestAnimationFrame(this.loop);
   }
 
   start() {
     this.startedAt = this.elapsed;
     this.audio.startMusic();
-    if (this.tutorial) {
-      this.phase = "tutorial";
-      this.tutorial.start();
-    } else {
-      this.beginIntermission();
-    }
+    this.beginIntermission();
   }
 
   private loop = () => {
@@ -212,7 +189,6 @@ export class Game {
       this.weapons.update(dt, this.input, this.player, this.now);
       this.goblins.update(dt, this.player, this.now);
       this.city.cars.update(dt);
-      this.tutorial?.update(dt);
       this.updatePhase(dt);
       this.updateCombo(dt);
       this.pickups.update(dt, this.elapsed, this.player.pos, (k) => this.collect(k));
@@ -246,7 +222,7 @@ export class Game {
       this.updateHud();
     }
     const alive = this.goblins.alive.length;
-    this.audio.musicIntensity = this.phase === "wave" ? Math.min(1, 0.35 + alive / 12) : this.phase === "tutorial" ? 0.1 : 0.2;
+    this.audio.musicIntensity = this.phase === "wave" ? Math.min(1, 0.35 + alive / 12) : 0.2;
     this.renderer.render(this.elapsed);
   }
 
@@ -272,7 +248,6 @@ export class Game {
     const big = e.def.id === "anaconda" || e.def.id === "winchester";
     this.stats.shots++;
     this.stats.shotsByWeapon[e.def.id]++;
-    this.hud.boom(big);
     this.fx.muzzle(e.muzzleWorld, e.dir, big);
     const r = e.def.recoil;
     const adsK = 1 - this.weapons.adsAmount * 0.35;
@@ -335,7 +310,6 @@ export class Game {
       if (i === 0 || anyHit) this.fx.tracer(e.muzzleWorld, endPoint, big && i === 0);
     }
     if (anyHit) this.stats.hits++;
-    this.tutorial?.notifyShot(anyHit);
   }
 
   private explodeCar(car: Car) {
@@ -358,7 +332,6 @@ export class Game {
     this.audio.explosion(dist);
     this.player.shake(Math.max(0, 0.9 - dist / 60));
     this.flashV = Math.max(this.flashV, Math.max(0, 0.5 - dist / 120));
-    this.hud.boom(true);
     let kills = 0;
     for (const g of [...this.goblins.goblins]) {
       if (g.state === "dead") continue;
@@ -371,11 +344,10 @@ export class Game {
         }
       }
     }
-    if (dist < radius * 0.7 && this.phase !== "tutorial") this.hurtPlayer(35 * (1 - dist / (radius * 0.7)), pos);
+    if (dist < radius * 0.7) this.hurtPlayer(35 * (1 - dist / (radius * 0.7)), pos);
   }
 
   private onGoblinKilled(g: Goblin, head: boolean, weapon: FireEvent["def"]["id"], dist: number, killsThisShot: number, explosive = false, rival = false) {
-    if (!rival) this.tutorial?.notifyKill(g, head, weapon);
     if (g.dummy) {
       this.hud.killfeed(`${head ? "HEADSHOT" : "DUMMY"} <em>${weaponTagFor(weapon)}</em>`, head);
       return;
@@ -469,14 +441,11 @@ export class Game {
 
   private hurtPlayer(dmg: number, from: THREE.Vector3) {
     if (!this.player.alive || this.phase === "victory") return;
-    const tutorialSafe = this.phase === "tutorial";
-    this.player.damage(tutorialSafe ? dmg * 0.5 : dmg, this.now);
-    if (tutorialSafe && this.player.health < 20) this.player.health = 20;
+    this.player.damage(dmg, this.now);
     this.streak = 0;
     this.audio.hurt();
     const dx = from.x - this.player.pos.x, dz = from.z - this.player.pos.z;
     this.hud.damageFrom(Math.atan2(dx, -dz) + this.player.yaw);
-    this.tutorial?.notifyDamage();
     if (!this.player.alive) this.die();
   }
 
@@ -568,7 +537,7 @@ export class Game {
     const p = this.player.pos;
     const candidates = zones
       .map(([x, z]) => ({ x, z, d: Math.hypot(x - p.x, z - p.z) }))
-      .filter((c) => c.d > 25 && c.d < 170);
+      .filter((c) => c.d > 25 && c.d < 170 && this.spawnClear(c.x, c.z));
     let base: Vec2;
     if (candidates.length) {
       const c = candidates[Math.floor(Math.random() * candidates.length)];
@@ -577,18 +546,35 @@ export class Game {
       const a = Math.random() * Math.PI * 2, r = 35 + Math.random() * 30;
       base = [p.x + Math.cos(a) * r, p.z + Math.sin(a) * r];
     }
-    return this.spawnNear(kind, base[0], base[1], 8);
+    return this.spawnNear(kind, base[0], base[1], 14);
+  }
+
+  /** Outside building footprints so goblins never trap inside unreachable interiors. */
+  private spawnClear(x: number, z: number) {
+    if (this.collision.buildingAt(x, z)) return false;
+    const lim = this.terrain.half - 8;
+    return Math.abs(x) < lim && Math.abs(z) < lim;
   }
 
   private spawnNear(kind: HostileKind, x: number, z: number, spread: number): Goblin {
     const lim = this.terrain.half - 6;
     let sx = x, sz = z;
-    for (let i = 0; i < 25; i++) {
-      sx = THREE.MathUtils.clamp(x + (Math.random() - 0.5) * spread * 2, -lim, lim);
-      sz = THREE.MathUtils.clamp(z + (Math.random() - 0.5) * spread * 2, -lim, lim);
-      if (!this.collision.buildingAt(sx, sz)) break;
+    for (let i = 0; i < 48; i++) {
+      const r = spread * (0.35 + Math.random() * 1.4);
+      const a = Math.random() * Math.PI * 2;
+      sx = THREE.MathUtils.clamp(x + Math.cos(a) * r, -lim, lim);
+      sz = THREE.MathUtils.clamp(z + Math.sin(a) * r, -lim, lim);
+      if (this.spawnClear(sx, sz)) return this.goblins.spawn(kind, sx, sz);
     }
-    return this.goblins.spawn(kind, sx, sz);
+    for (let ring = 10; ring < 80; ring += 8) {
+      for (let i = 0; i < 10; i++) {
+        const a = (i / 10) * Math.PI * 2 + Math.random();
+        sx = THREE.MathUtils.clamp(this.player.pos.x + Math.cos(a) * ring, -lim, lim);
+        sz = THREE.MathUtils.clamp(this.player.pos.z + Math.sin(a) * ring, -lim, lim);
+        if (this.spawnClear(sx, sz)) return this.goblins.spawn(kind, sx, sz);
+      }
+    }
+    return this.goblins.spawn(kind, this.player.pos.x + 12, this.player.pos.z);
   }
 
   private victory() {
@@ -616,7 +602,6 @@ export class Game {
     cancelAnimationFrame(this.raf);
     this.audio.stopMusic();
     this.hud.destroy();
-    this.tutorial?.dispose();
     this.renderer.dispose();
     this.scene.traverse((o) => {
       const m = o as THREE.Mesh;
