@@ -50,6 +50,13 @@ function factionOf(kind: HostileKind): Faction {
   return "goblin";
 }
 
+/** Goblins stick together. Geezers stick together. Each dinosaur kind is its own side. */
+function hostileTo(self: { faction: Faction; kind: HostileKind }, other: { faction: Faction; kind: HostileKind }) {
+  if (self.faction === "goblin" && other.faction === "goblin") return false;
+  if (self.faction === "geezer" && other.faction === "geezer") return false;
+  return self.kind !== other.kind;
+}
+
 type State = "rising" | "chase" | "windup" | "recover" | "dead";
 
 export interface Goblin {
@@ -435,8 +442,7 @@ export class GoblinManager {
     let best: Goblin | null = null;
     let bestD = Infinity;
     for (const o of this.goblins) {
-      // Same kind only — every other class (goblin subtypes, emos, dinos) is fair game.
-      if (o === g || o.state === "dead" || o.dummy || o.kind === g.kind) continue;
+      if (o === g || o.state === "dead" || o.dummy || !hostileTo(g, o)) continue;
       const d = Math.hypot(o.pos.x - g.pos.x, o.pos.z - g.pos.z);
       if (d < bestD) { bestD = d; best = o; }
     }
@@ -530,7 +536,8 @@ export class GoblinManager {
 
       let hitRival: Goblin | null = null;
       for (const o of this.goblins) {
-        if (o.state === "dead" || o.dummy || o.id === p.ownerId || o.kind === p.ownerKind) continue;
+        if (o.state === "dead" || o.dummy || o.id === p.ownerId) continue;
+        if (!hostileTo({ faction: factionOf(p.ownerKind), kind: p.ownerKind }, o)) continue;
         const d = Math.hypot(o.pos.x - p.mesh.position.x, o.pos.z - p.mesh.position.z);
         const dy = Math.abs(o.pos.y + 1.1 * o.def.scale - p.mesh.position.y);
         if (d < 0.9 * o.def.scale && dy < 1.4 * o.def.scale) { hitRival = o; break; }
