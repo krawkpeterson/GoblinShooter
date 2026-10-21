@@ -369,7 +369,7 @@ export class WeaponSystem {
       this.setState("idle", 0);
     }
 
-    if (input.firePressed && player.alive && this.canFire) this.tryFire(now);
+    if (player.alive && this.canFire && (input.firePressed || (input.touch && input.fireHeld))) this.tryFire(now);
     if (this.state === "idle" && this.gun.ammo === 0 && this.gun.reserve > 0 && now > this.nextFireAt + 0.25) this.startReload();
 
     this.animate(dt, input, player);
