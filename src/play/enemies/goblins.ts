@@ -21,15 +21,15 @@ export interface GoblinDef {
 }
 
 export const GOBLINS: Record<GoblinKind, GoblinDef> = {
-  grunt: { hp: 100, speed: 5.1, damage: 18, scale: 1, score: 100, attackRange: 2.7, windup: 0.32, cooldown: 1.05, name: "Grunt", voice: 1 },
-  runner: { hp: 55, speed: 8.8, damage: 11, scale: 0.82, score: 120, attackRange: 2.2, windup: 0.2, cooldown: 0.7, name: "Sneak", voice: 1.35 },
-  brute: { hp: 440, speed: 3.4, damage: 34, scale: 1.75, score: 400, attackRange: 3.5, windup: 0.42, cooldown: 1.25, name: "Brute", voice: 0.6 },
-  shaman: { hp: 130, speed: 3.5, damage: 16, scale: 1.02, score: 250, attackRange: 26, windup: 0.8, cooldown: 2.6, name: "Shaman", voice: 1.15 },
-  king: { hp: 3600, speed: 4.1, damage: 42, scale: 3.3, score: 5000, attackRange: 4.6, windup: 0.5, cooldown: 1.2, name: "KRAWK THE GOBLIN KING", voice: 0.42 },
+  grunt: { hp: 115, speed: 4.9, damage: 20, scale: 1.02, score: 100, attackRange: 2.55, windup: 0.34, cooldown: 1.1, name: "Raider", voice: 0.95 },
+  runner: { hp: 62, speed: 9.2, damage: 12, scale: 0.88, score: 130, attackRange: 2.1, windup: 0.18, cooldown: 0.65, name: "Stalker", voice: 1.4 },
+  brute: { hp: 480, speed: 3.2, damage: 38, scale: 1.65, score: 420, attackRange: 3.4, windup: 0.48, cooldown: 1.35, name: "Enforcer", voice: 0.55 },
+  shaman: { hp: 145, speed: 3.3, damage: 18, scale: 1.05, score: 260, attackRange: 28, windup: 0.85, cooldown: 2.5, name: "Hexer", voice: 1.1 },
+  king: { hp: 3800, speed: 3.9, damage: 46, scale: 2.85, score: 5000, attackRange: 4.4, windup: 0.55, cooldown: 1.15, name: "KRAWK THE GOBLIN KING", voice: 0.4 },
 };
 
 export const GEEZER: GoblinDef = {
-  hp: 80, speed: 7.4, damage: 10, scale: 1, score: 140, attackRange: 1.85, windup: 0.22, cooldown: 0.7, name: "Emo Girl", voice: 1.45,
+  hp: 90, speed: 7.6, damage: 11, scale: 1.02, score: 150, attackRange: 1.9, windup: 0.24, cooldown: 0.72, name: "Emo Girl", voice: 1.45,
 };
 
 export const HOSTILES: Record<HostileKind, GoblinDef> = { ...GOBLINS, geezer: GEEZER };
