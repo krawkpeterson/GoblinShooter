@@ -1,4 +1,4 @@
-export type GunKind = "m1911" | "anaconda" | "ruger" | "winchester" | "precision" | "m60";
+export type GunKind = "m1911" | "anaconda" | "ruger" | "winchester" | "precision" | "m60" | "rocket" | "mine";
 
 /** Everything is synthesized at runtime: no audio files ship with the game. */
 export class AudioEngine {
@@ -133,6 +133,8 @@ export class AudioEngine {
       winchester: { crack: 1900, body: 620, sub: 70, dur: 0.34, vol: 1.2, mech: 480, echo: 0.2 },
       precision: { crack: 3200, body: 900, sub: 95, dur: 0.32, vol: 1.25, mech: 1100, echo: 0.22 },
       m60: { crack: 2400, body: 680, sub: 78, dur: 0.14, vol: 1.05, mech: 700, echo: 0.1 },
+      rocket: { crack: 900, body: 420, sub: 55, dur: 0.45, vol: 1.3, mech: 280, echo: 0.28 },
+      mine: { crack: 800, body: 500, sub: 90, dur: 0.12, vol: 0.55, mech: 1200, echo: 0.05 },
     }[kind];
 
     const out = ctx.createGain();
@@ -335,6 +337,14 @@ export class AudioEngine {
       this.metal(t + 0.4, [400, 800], 0.1, 0.25);
       this.click(t + 1.6, 750, 0.45, 0.05);
       this.metal(t + 2.4, [900, 1600], 0.07, 0.15);
+    } else if (kind === "rocket") {
+      this.click(t + 0.1, 400, 0.4, 0.05);
+      this.metal(t + 0.5, [300, 600], 0.1, 0.3);
+      this.click(t + 1.8, 550, 0.5, 0.06);
+    } else if (kind === "mine") {
+      this.click(t + 0.08, 900, 0.35, 0.04);
+      this.metal(t + 0.35, [700, 1100], 0.06, 0.15);
+      this.click(t + 0.9, 600, 0.4, 0.05);
     } else {
       this.click(t + 0.1, 700, 0.35, 0.04); // cylinder latch
       this.metal(t + 0.3, [600, 1200], 0.08, 0.3);
