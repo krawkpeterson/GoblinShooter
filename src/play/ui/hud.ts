@@ -35,7 +35,7 @@ export class Hud {
         <div class="ammo"><b class="mag">14</b><span class="reserve">/ ∞</span></div>
         <div class="rounds"></div>
         <div class="reload-ring"><i></i></div>
-        <div class="reload-hint">PRESS R TO RELOAD</div>
+        <div class="reload-hint">RELOAD</div>
       </div>
       <div class="announce"></div>
       <div class="damage-vignette"></div>

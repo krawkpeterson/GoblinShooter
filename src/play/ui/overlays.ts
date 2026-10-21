@@ -17,10 +17,15 @@ export class PauseOverlay {
         <div class="slider-row"><label>SENSITIVITY</label><input type="range" class="sens" min="0.2" max="3" step="0.05" value="${input.sensitivity}" /><output class="sens-o">${input.sensitivity.toFixed(2)}</output></div>
         <div class="slider-row"><label>VOLUME</label><input type="range" class="vol" min="0" max="1" step="0.01" value="${audio.volume}" /><output class="vol-o">${Math.round(audio.volume * 100)}</output></div>
         <div class="keys">
-          <div><kbd>WASD</kbd>Move</div><div><kbd>SHIFT</kbd>Sprint</div>
+          ${input.touch
+            ? `<div><kbd>LEFT STICK</kbd>Move · push hard to sprint</div>
+          <div><kbd>RIGHT DRAG</kbd>Look</div>
+          <div><kbd>FIRE</kbd>Shoot</div><div><kbd>AIM</kbd>Toggle sights</div>
+          <div><kbd>JUMP</kbd>Jump</div><div><kbd>RELOAD / SWAP</kbd>Mag &amp; gun</div>`
+            : `<div><kbd>WASD</kbd>Move</div><div><kbd>SHIFT</kbd>Sprint</div>
           <div><kbd>SPACE</kbd>Jump</div><div><kbd>C</kbd>Crouch</div>
           <div><kbd>LMB</kbd>Fire</div><div><kbd>RMB</kbd>Aim down sights</div>
-          <div><kbd>R</kbd>Reload</div><div><kbd>1 2 Q</kbd>Swap weapon</div>
+          <div><kbd>R</kbd>Reload</div><div><kbd>1 2 Q</kbd>Swap weapon</div>`}
         </div>
         <div class="actions">
           <button class="btn-deploy resume"><span>RESUME</span><i class="shine"></i></button>

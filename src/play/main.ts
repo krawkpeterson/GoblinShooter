@@ -2,6 +2,7 @@ import "./styles/base.css";
 import "./styles/menu.css";
 import "./styles/loading.css";
 import "./styles/hud.css";
+import "./styles/touch.css";
 import "./styles/overlays.css";
 import type * as THREE from "three";
 import type { WorldData } from "../../shared/types.ts";
@@ -13,6 +14,7 @@ import { playerId, submitScore, upsertPlayer } from "./net/api.ts";
 import { Briefing, Loading } from "./ui/loading.ts";
 import { LIGHTING_HOURS, Menu, type DeployRequest } from "./ui/menu.ts";
 import { EndOverlay, PauseOverlay } from "./ui/overlays.ts";
+import { TouchControls } from "./ui/touchControls.ts";
 
 const canvas = document.getElementById("game-canvas") as HTMLCanvasElement;
 const ui = document.getElementById("ui-root") as HTMLElement;
@@ -26,6 +28,7 @@ let briefing: Briefing | null = null;
 let game: Game | null = null;
 let pause: PauseOverlay | null = null;
 let end: EndOverlay | null = null;
+let touch: TouchControls | null = null;
 let lastRequest: DeployRequest | null = null;
 let lastWorld: WorldData | null = null;
 
@@ -35,12 +38,14 @@ function clearScreens() {
   briefing?.destroy();
   pause?.destroy();
   end?.destroy();
-  menu = loading = briefing = pause = end = null;
+  touch?.destroy();
+  menu = loading = briefing = pause = end = touch = null;
 }
 
 function showMenu() {
   game?.dispose();
   game = null;
+  input.unlock();
   clearScreens();
   canvas.style.visibility = "hidden";
   menu = new Menu(ui, audio, (req) => void deploy(req));
@@ -109,11 +114,17 @@ function launch(world: WorldData, req: DeployRequest) {
     }, showMenu);
   };
 
+  if (input.touch) {
+    touch?.destroy();
+    touch = new TouchControls(ui, input, () => input.unlock());
+  }
+
   briefing = new Briefing(ui, world, () => {
     audio.unlock();
     briefing?.destroy();
     briefing = null;
     g.hud.show(true);
+    touch?.show(true);
     input.lock();
     g.start();
   });
@@ -124,8 +135,10 @@ input.onLockChange = (locked) => {
   if (locked) {
     pause?.destroy();
     pause = null;
+    touch?.show(true);
     return;
   }
+  touch?.show(false);
   if (!pause) {
     pause = new PauseOverlay(ui, input, audio, () => input.lock(), () => showMenu());
   }

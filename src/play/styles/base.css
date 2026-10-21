@@ -18,6 +18,12 @@ html, body {
 #ui-root { pointer-events: none; }
 #ui-root > * { pointer-events: auto; }
 #ui-root > .hud { pointer-events: none; }
+#ui-root > .touch-pad { pointer-events: none; }
+
+html.touch, html.touch body {
+  overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
+}
 
 button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
 input { font: inherit; color: inherit; }
