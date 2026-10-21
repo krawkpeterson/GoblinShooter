@@ -7,7 +7,6 @@ export class Hud {
   readonly el: HTMLDivElement;
   private mapImage: HTMLCanvasElement;
   private mini: HTMLCanvasElement;
-  private lastBoomAt = 0;
   private feedCount = 0;
 
   constructor(parent: HTMLElement, private readonly world: WorldData) {
@@ -39,7 +38,6 @@ export class Hud {
         <div class="reload-hint">PRESS R TO RELOAD</div>
       </div>
       <div class="announce"></div>
-      <div class="boom-layer"></div>
       <div class="damage-vignette"></div>
       <div class="dmg-indicators"></div>
       <div class="sarge"><div class="sarge-avatar">SGT</div><div class="sarge-body"><b>SGT. GRIMSBY · DRILL INSTRUCTOR</b><p></p></div><div class="shame"><small>SHAME</small><b>0%</b></div></div>
@@ -135,26 +133,6 @@ export class Hud {
     if (cls) d.className = cls;
     d.innerHTML = `${text}${sub ? `<small>${sub}</small>` : ""}`;
     a.appendChild(d);
-  }
-
-  /** Comic-book onomatopoeia burst for every Magnum shot. */
-  boom(big: boolean) {
-    const now = performance.now();
-    if (!big && now - this.lastBoomAt < 600) return;
-    this.lastBoomAt = now;
-    const layer = $(this.el, ".boom-layer");
-    const b = document.createElement("div");
-    b.className = "boom";
-    const words = big
-      ? ["BOPOOOOOOM!!!", "BOPOOOOOOOM!!", "KA-BOPOOOOM!!!", "BOPOOOOOOOOM!!!!"]
-      : ["BOPOOM!", "BOOM!", "BOP!"];
-    b.textContent = words[Math.floor(Math.random() * words.length)];
-    b.style.left = `${50 + (Math.random() - 0.3) * 30}%`;
-    b.style.top = `${48 + (Math.random() - 0.5) * 24}%`;
-    b.style.fontSize = `${big ? 92 + Math.random() * 40 : 48 + Math.random() * 16}px`;
-    b.style.setProperty("--r", `${(Math.random() - 0.5) * 24}deg`);
-    layer.appendChild(b);
-    setTimeout(() => b.remove(), 950);
   }
 
   damageFrom(angle: number) {
