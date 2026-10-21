@@ -29,7 +29,7 @@ export class Hud {
       <div class="hud-top">
         <div class="hud-chip wave"><small>WAVE</small><b class="wave-n">1</b><small class="wave-t">/ 6</small></div>
         <div class="hud-chip score"><b class="score-n">0</b><span class="combo">x1</span></div>
-        <div class="hud-chip enemies"><b class="enemy-n">0</b><small>GOBLINS</small></div>
+        <div class="hud-chip enemies"><b class="enemy-n">0</b><small>ENEMIES</small></div>
       </div>
       <div class="boss-bar"><b></b><div><i></i></div></div>
       <canvas class="minimap" width="420" height="420"></canvas>
