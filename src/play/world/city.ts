@@ -43,7 +43,7 @@ function windowTextures(urban: boolean) {
   const map = new THREE.CanvasTexture(base);
   map.colorSpace = THREE.SRGBColorSpace;
   map.wrapS = map.wrapT = THREE.RepeatWrapping;
-  map.anisotropy = 8;
+  map.anisotropy = 4;
   const emissiveMap = new THREE.CanvasTexture(lit);
   emissiveMap.colorSpace = THREE.SRGBColorSpace;
   emissiveMap.wrapS = emissiveMap.wrapT = THREE.RepeatWrapping;
@@ -89,7 +89,7 @@ export interface CityBuild {
   group: THREE.Group;
   buildingMeshes: THREE.Mesh[];
   colliders: BuildingCollider[];
-  windowMaterial: THREE.MeshStandardMaterial;
+  windowMaterial: THREE.MeshLambertMaterial;
   water: THREE.Mesh[];
   waterMaterial: THREE.MeshStandardMaterial;
   cars: CarSystem;
@@ -221,14 +221,12 @@ export function buildCity(world: WorldData, terrain: Terrain, collision: (c: Bui
     colliders.push({ poly: pts, base, top, floor: floorY, hollow: enterable, door });
   });
 
-  const windowMaterial = new THREE.MeshStandardMaterial({
+  const windowMaterial = new THREE.MeshLambertMaterial({
     vertexColors: true,
     map,
     emissiveMap,
     emissive: new THREE.Color("#ffffff"),
     emissiveIntensity: 0,
-    roughness: 0.78,
-    metalness: 0.05,
   });
   const buildingMeshes: THREE.Mesh[] = [];
   if (walls.pos.length) {
@@ -250,8 +248,9 @@ export function buildCity(world: WorldData, terrain: Terrain, collision: (c: Bui
     g.setAttribute("normal", new THREE.Float32BufferAttribute(roofs.nor, 3));
     g.setAttribute("color", new THREE.Float32BufferAttribute(roofs.col, 3));
     g.computeBoundingSphere();
-    const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9 }));
-    m.castShadow = m.receiveShadow = true;
+    const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ vertexColors: true }));
+    m.castShadow = true;
+    m.receiveShadow = false;
     m.name = "roofs";
     buildingMeshes.push(m);
     group.add(m);
@@ -471,11 +470,12 @@ function buildTrees(world: WorldData, terrain: Terrain, collision: CollisionWorl
   };
   const palmGeo = frond();
 
-  const trees = world.trees;
+  const urbanHeavy = world.stats.buildings > 250;
+  const trees = urbanHeavy ? world.trees.slice(0, 900) : world.trees;
   const kinds = trees.map((p) => treeKindFor(world, hash2(p[0], p[1])));
   const count = (k: TreeKind) => kinds.filter((x) => x === k).length;
-  const leafMat = new THREE.MeshStandardMaterial({ roughness: 0.85, flatShading: true });
-  const trunks = new THREE.InstancedMesh(trunkGeo, new THREE.MeshStandardMaterial({ color: "#5a4330", roughness: 1 }), trees.length);
+  const leafMat = new THREE.MeshLambertMaterial({ flatShading: true });
+  const trunks = new THREE.InstancedMesh(trunkGeo, new THREE.MeshLambertMaterial({ color: "#5a4330" }), Math.max(1, trees.length));
   const crowns: Record<TreeKind, THREE.InstancedMesh> = {
     broadleaf: new THREE.InstancedMesh(broadGeo, leafMat, Math.max(1, count("broadleaf"))),
     conifer: new THREE.InstancedMesh(coneGeo, leafMat, Math.max(1, count("conifer"))),
@@ -505,13 +505,13 @@ function buildTrees(world: WorldData, terrain: Terrain, collision: CollisionWorl
     collision.addCircle({ x, z, r: 0.4 * scale, top: y + trunkH + 4 });
   });
 
-  trunks.castShadow = true;
+  trunks.castShadow = !urbanHeavy;
   group.add(trunks);
   for (const k of Object.keys(crowns) as TreeKind[]) {
     const mesh = crowns[k];
     mesh.count = idx[k];
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
+    mesh.castShadow = !urbanHeavy;
+    mesh.receiveShadow = false;
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     group.add(mesh);
   }
@@ -573,9 +573,9 @@ export class CarSystem {
       }
     }
     const n = Math.max(1, spots.length);
-    this.bodies = new THREE.InstancedMesh(new THREE.BoxGeometry(4.5, 0.75, 1.95).translate(0, 0.72, 0), new THREE.MeshStandardMaterial({ roughness: 0.35, metalness: 0.6 }), n);
-    this.cabins = new THREE.InstancedMesh(new THREE.BoxGeometry(2.4, 0.62, 1.75).translate(-0.25, 1.4, 0), new THREE.MeshStandardMaterial({ color: "#1a2430", roughness: 0.1, metalness: 0.8 }), n);
-    this.chassis = new THREE.InstancedMesh(new THREE.BoxGeometry(4.0, 0.5, 2.0).translate(0, 0.32, 0), new THREE.MeshStandardMaterial({ color: "#111", roughness: 0.9 }), n);
+    this.bodies = new THREE.InstancedMesh(new THREE.BoxGeometry(4.5, 0.75, 1.95).translate(0, 0.72, 0), new THREE.MeshLambertMaterial(), n);
+    this.cabins = new THREE.InstancedMesh(new THREE.BoxGeometry(2.4, 0.62, 1.75).translate(-0.25, 1.4, 0), new THREE.MeshLambertMaterial({ color: "#1a2430" }), n);
+    this.chassis = new THREE.InstancedMesh(new THREE.BoxGeometry(4.0, 0.5, 2.0).translate(0, 0.32, 0), new THREE.MeshLambertMaterial({ color: "#111" }), n);
     spots.forEach((s, index) => {
       const car: Car = { ...s, index };
       this.cars.push(car);
@@ -585,8 +585,10 @@ export class CarSystem {
       this.writeMatrix(car);
     });
     this.bodies.count = this.cabins.count = this.chassis.count = spots.length;
+    const cast = world.stats.buildings < 350;
     for (const mesh of [this.bodies, this.cabins, this.chassis]) {
-      mesh.castShadow = mesh.receiveShadow = true;
+      mesh.castShadow = cast;
+      mesh.receiveShadow = false;
       this.group.add(mesh);
     }
     if (this.bodies.instanceColor) this.bodies.instanceColor.needsUpdate = true;

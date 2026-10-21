@@ -86,14 +86,15 @@ export class SkySystem {
       sunIntensity,
     );
     this.sun.castShadow = true;
-    this.sun.shadow.mapSize.set(2048, 2048);
+    this.sun.shadow.mapSize.set(1024, 1024);
+    this.sun.shadow.autoUpdate = true;
     const sc = this.sun.shadow.camera;
-    sc.left = sc.bottom = -70;
-    sc.right = sc.top = 70;
+    sc.left = sc.bottom = -42;
+    sc.right = sc.top = 42;
     sc.near = 1;
-    sc.far = 600;
-    this.sun.shadow.bias = -0.0004;
-    this.sun.shadow.normalBias = 0.04;
+    sc.far = 320;
+    this.sun.shadow.bias = -0.0006;
+    this.sun.shadow.normalBias = 0.05;
     scene.add(this.sun, this.sun.target);
 
     this.hemi = new THREE.HemisphereLight(skyTop.clone().lerp(new THREE.Color("#ffffff"), 0.35), new THREE.Color(pal.ground).multiplyScalar(0.6), THREE.MathUtils.lerp(1.15, 0.9, this.night));

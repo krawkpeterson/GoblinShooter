@@ -59,10 +59,10 @@ export class Renderer {
 
   static createWebGL(canvas: HTMLCanvasElement) {
     const r = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: "high-performance", preserveDrawingBuffer: true });
-    r.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
+    r.setPixelRatio(Math.min(window.devicePixelRatio, 1.25));
     r.setSize(window.innerWidth, window.innerHeight, false);
     r.shadowMap.enabled = true;
-    r.shadowMap.type = THREE.PCFSoftShadowMap;
+    r.shadowMap.type = THREE.BasicShadowMap;
     r.toneMapping = THREE.ACESFilmicToneMapping;
     r.toneMappingExposure = 1.0;
     r.outputColorSpace = THREE.SRGBColorSpace;
@@ -78,13 +78,13 @@ export class Renderer {
   ) {
     this.renderer = renderer;
     const size = this.renderer.getDrawingBufferSize(new THREE.Vector2());
-    const target = new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: 4 });
+    const target = new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: 0 });
     this.composer = new EffectComposer(this.renderer, target);
     this.worldPass = new RenderPass(scene, camera);
     this.viewPass = new RenderPass(viewScene, viewCamera);
     this.viewPass.clear = false;
     this.viewPass.clearDepth = true;
-    this.bloom = new UnrealBloomPass(new THREE.Vector2(size.x / 2, size.y / 2), 0.55, 0.55, 0.88);
+    this.bloom = new UnrealBloomPass(new THREE.Vector2(size.x / 2, size.y / 2), 0.28, 0.4, 0.92);
     this.grade = new ShaderPass(GradeShader);
     this.composer.addPass(this.worldPass);
     this.composer.addPass(this.viewPass);

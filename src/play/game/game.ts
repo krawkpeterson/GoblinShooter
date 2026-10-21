@@ -37,7 +37,7 @@ const MULTI = ["", "", "DOUBLE KILL", "TRIPLE KILL", "QUAD KILL", "GOBLINOCIDE"]
 export class Game {
   readonly scene = new THREE.Scene();
   readonly viewScene = new THREE.Scene();
-  readonly camera = new THREE.PerspectiveCamera(78, innerWidth / innerHeight, 0.05, 5000);
+  readonly camera = new THREE.PerspectiveCamera(78, innerWidth / innerHeight, 0.08, 520);
   readonly viewCamera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.01, 10);
   readonly terrain: Terrain;
   readonly collision: CollisionWorld;
@@ -102,6 +102,12 @@ export class Game {
     this.collision = built.collisionWorld;
     this.scene.add(this.city.group);
     this.sky = new SkySystem(this.scene, world.director, world.weather);
+    if (this.scene.fog instanceof THREE.FogExp2) {
+      const dense = Math.min(1, world.stats.buildings / 900);
+      this.scene.fog.density = world.director.fogDensity * (1 + this.sky.night * 0.5) * (1 + dense * 1.35);
+    }
+    this.camera.far = world.stats.buildings > 400 ? 380 : 520;
+    this.camera.updateProjectionMatrix();
     this.city.windowMaterial.emissiveIntensity = this.sky.night * 0.75;
     gl.toneMappingExposure = 1 + this.sky.night * 0.45;
 
@@ -120,6 +126,7 @@ export class Game {
     this.player.yaw = Math.atan2(hx, hz);
 
     this.renderer = new Renderer(gl, this.scene, this.camera, this.viewScene, this.viewCamera);
+    if (world.stats.buildings > 500) this.renderer.bloom.enabled = false;
     this.weapons = new WeaponSystem(this.viewScene, gl, this.viewCamera, this.camera, audio, loadout);
     this.weapons.setLighting(this.sky.sun.color, this.sky.sun.intensity);
     this.weapons.onFire = (e) => this.handleFire(e);
