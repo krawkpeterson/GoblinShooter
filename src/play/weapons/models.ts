@@ -325,6 +325,147 @@ export function buildWinchester12(): WinchesterModel {
   return { root, pump, hammer, muzzle, ejection, sightHeight: 0.023 };
 }
 
+export interface PrecisionModel {
+  root: THREE.Group;
+  bolt: THREE.Group;
+  mag: THREE.Group;
+  muzzle: THREE.Object3D;
+  ejection: THREE.Object3D;
+  sightHeight: number;
+}
+
+/** Ruger Precision–style bolt rifle: chassis, long free-float barrel, optic. */
+export function buildPrecisionRifle(): PrecisionModel {
+  const root = new THREE.Group();
+  const S = MAT.blued, D = MAT.bluedDark, R = MAT.rubber, C = MAT.stainlessDark;
+
+  root.add(mesh(new THREE.CylinderGeometry(0.009, 0.0095, 0.52, 18).rotateX(Math.PI / 2), S, 0, 0.018, -0.38));
+  root.add(mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.522, 12).rotateX(Math.PI / 2), MAT.bore, 0, 0.018, -0.38));
+  root.add(mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.055, 16).rotateX(Math.PI / 2), D, 0, 0.018, -0.62));
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2;
+    root.add(mesh(new THREE.BoxGeometry(0.004, 0.018, 0.05), D, Math.cos(a) * 0.012, 0.018 + Math.sin(a) * 0.012, -0.62));
+  }
+  root.add(mesh(box(0.034, 0.042, 0.2, 0.003), S, 0, 0.01, -0.02));
+  root.add(mesh(box(0.028, 0.016, 0.16, 0.002), D, 0, 0.028, -0.02));
+  root.add(mesh(box(0.048, 0.028, 0.28, 0.004), R, 0, -0.02, -0.12));
+  for (let i = 0; i < 8; i++) root.add(mesh(new THREE.BoxGeometry(0.05, 0.004, 0.012), C, 0, -0.01, -0.22 - i * 0.028));
+
+  const bolt = new THREE.Group();
+  bolt.position.set(0.012, 0.028, 0.02);
+  bolt.add(mesh(new THREE.CylinderGeometry(0.007, 0.007, 0.09, 12).rotateX(Math.PI / 2), C, 0, 0, -0.02));
+  const handle = mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.055, 10), C, 0.03, 0.01, 0.01);
+  handle.rotation.z = -0.85;
+  bolt.add(handle);
+  bolt.add(mesh(new THREE.SphereGeometry(0.009, 10, 8), R, 0.052, 0.028, 0.01));
+  root.add(bolt);
+
+  const mag = new THREE.Group();
+  mag.position.set(0, -0.04, -0.02);
+  mag.add(mesh(box(0.024, 0.085, 0.055, 0.003), D, 0, -0.02, 0));
+  root.add(mag);
+
+  root.add(mesh(box(0.022, 0.04, 0.12, 0.004), R, 0, -0.01, 0.12));
+  root.add(mesh(box(0.036, 0.055, 0.03, 0.003), R, 0, 0.0, 0.2));
+  const stock = mesh(box(0.03, 0.045, 0.14, 0.005), R, 0, 0.005, 0.28);
+  stock.rotation.x = -0.08;
+  root.add(stock);
+  root.add(mesh(box(0.032, 0.06, 0.014, 0.002), R, 0, 0.0, 0.35));
+
+  // Scope
+  root.add(mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.14, 14).rotateX(Math.PI / 2), D, 0, 0.055, -0.08));
+  root.add(mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.04, 14).rotateX(Math.PI / 2), C, 0, 0.055, -0.16));
+  root.add(mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.035, 14).rotateX(Math.PI / 2), C, 0, 0.055, 0.0));
+  root.add(mesh(box(0.012, 0.012, 0.02, 0.001), S, 0, 0.04, -0.1));
+  root.add(mesh(box(0.012, 0.012, 0.02, 0.001), S, 0, 0.04, -0.04));
+
+  const guard = mesh(new THREE.TorusGeometry(0.016, 0.0024, 8, 16, Math.PI), S, 0, -0.022, 0.04);
+  guard.rotation.set(0, Math.PI / 2, Math.PI);
+  root.add(guard);
+  root.add(mesh(box(0.004, 0.014, 0.01, 0.001), S, 0, -0.028, 0.045));
+
+  const muzzle = new THREE.Object3D();
+  muzzle.position.set(0, 0.018, -0.65);
+  root.add(muzzle);
+  const ejection = new THREE.Object3D();
+  ejection.position.set(0.02, 0.03, 0.0);
+  root.add(ejection);
+  return { root, bolt, mag, muzzle, ejection, sightHeight: 0.055 };
+}
+
+export interface M60Model {
+  root: THREE.Group;
+  bolt: THREE.Group;
+  mag: THREE.Group;
+  muzzle: THREE.Object3D;
+  ejection: THREE.Object3D;
+  sightHeight: number;
+}
+
+/** M60 machine gun: heavy receiver, bipod, box feed, ventilated barrel. */
+export function buildM60(): M60Model {
+  const root = new THREE.Group();
+  const S = MAT.blued, D = MAT.bluedDark, R = MAT.rubber, C = MAT.stainlessDark;
+
+  root.add(mesh(new THREE.CylinderGeometry(0.011, 0.012, 0.42, 16).rotateX(Math.PI / 2), S, 0, 0.02, -0.32));
+  root.add(mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.422, 10).rotateX(Math.PI / 2), MAT.bore, 0, 0.02, -0.32));
+  for (let i = 0; i < 10; i++) {
+    root.add(mesh(new THREE.TorusGeometry(0.014, 0.002, 6, 12), C, 0, 0.02, -0.18 - i * 0.028));
+  }
+  root.add(mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.04, 12).rotateX(Math.PI / 2), D, 0, 0.02, -0.52));
+
+  root.add(mesh(box(0.05, 0.055, 0.22, 0.004), S, 0, 0.005, -0.02));
+  root.add(mesh(box(0.042, 0.02, 0.18, 0.002), D, 0, 0.032, -0.02));
+  root.add(mesh(box(0.028, 0.035, 0.06, 0.003), S, 0, 0.045, 0.04));
+
+  const bolt = new THREE.Group();
+  bolt.position.set(0, 0.03, 0.02);
+  bolt.add(mesh(box(0.02, 0.018, 0.05, 0.002), C, 0, 0, 0));
+  root.add(bolt);
+
+  const mag = new THREE.Group();
+  mag.position.set(0.04, -0.02, -0.02);
+  mag.add(mesh(box(0.055, 0.07, 0.09, 0.004), D, 0, 0, 0));
+  mag.add(mesh(box(0.05, 0.01, 0.085, 0.002), R, 0, 0.035, 0));
+  root.add(mag);
+
+  // Carry handle
+  const handle = mesh(new THREE.TorusGeometry(0.035, 0.004, 8, 16, Math.PI), S, 0, 0.06, -0.08);
+  handle.rotation.z = Math.PI / 2;
+  root.add(handle);
+
+  // Bipod
+  const bipod = new THREE.Group();
+  bipod.position.set(0, -0.02, -0.35);
+  for (const side of [-1, 1]) {
+    const leg = mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.14, 8), C, side * 0.04, -0.05, 0);
+    leg.rotation.z = side * 0.45;
+    bipod.add(leg);
+    bipod.add(mesh(box(0.02, 0.006, 0.03, 0.002), R, side * 0.07, -0.11, 0));
+  }
+  root.add(bipod);
+
+  root.add(mesh(box(0.04, 0.05, 0.16, 0.006), R, 0, -0.015, 0.14));
+  root.add(mesh(box(0.042, 0.07, 0.02, 0.003), R, 0, -0.01, 0.24));
+  const grip = mesh(box(0.028, 0.055, 0.04, 0.005), R, 0, -0.04, 0.06);
+  grip.rotation.x = 0.35;
+  root.add(grip);
+  const tg = mesh(new THREE.TorusGeometry(0.018, 0.0025, 8, 14, Math.PI), S, 0, -0.05, 0.05);
+  tg.rotation.set(0, Math.PI / 2, Math.PI);
+  root.add(tg);
+
+  root.add(mesh(box(0.01, 0.012, 0.02, 0.001), S, 0, 0.045, -0.45));
+  root.add(mesh(new THREE.BoxGeometry(0.004, 0.004, 0.003), MAT.tritiumOrange, 0, 0.052, -0.445));
+
+  const muzzle = new THREE.Object3D();
+  muzzle.position.set(0, 0.02, -0.55);
+  root.add(muzzle);
+  const ejection = new THREE.Object3D();
+  ejection.position.set(0.03, 0.02, 0.0);
+  root.add(ejection);
+  return { root, bolt, mag, muzzle, ejection, sightHeight: 0.045 };
+}
+
 /** Gloved shooting hands in a thumbs-forward two-hand grip. */
 export function buildHands(): { right: THREE.Group; left: THREE.Group } {
   const right = new THREE.Group();
