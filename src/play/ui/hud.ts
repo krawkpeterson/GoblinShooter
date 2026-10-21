@@ -14,6 +14,17 @@ export class Hud {
     this.el.className = "hud";
     this.el.innerHTML = `
       <div class="crosshair"><i class="ch-t"></i><i class="ch-b"></i><i class="ch-l"></i><i class="ch-r"></i><i class="ch-dot"></i></div>
+      <div class="scope-overlay hidden" aria-hidden="true">
+        <div class="scope-vignette"></div>
+        <div class="scope-lens">
+          <div class="scope-reticle">
+            <i class="sr-h"></i><i class="sr-v"></i>
+            <i class="sr-dot"></i>
+            <i class="sr-tick t1"></i><i class="sr-tick t2"></i><i class="sr-tick t3"></i><i class="sr-tick t4"></i>
+          </div>
+          <div class="scope-zoom"></div>
+        </div>
+      </div>
       <div class="hitmarker"></div>
       <div class="hud-top">
         <div class="hud-chip wave"><small>WAVE</small><b class="wave-n">1</b><small class="wave-t">/ 6</small></div>
@@ -110,6 +121,17 @@ export class Hud {
     const ch = $(this.el, ".crosshair");
     ch.style.setProperty("--spread", `${px.toFixed(1)}px`);
     ch.classList.toggle("ads", ads);
+  }
+
+  /** LPVO overlay: level 0 hip, 1–3 zoom. Reticle sits at screen center = hitscan aim. */
+  setScope(level: number) {
+    const ov = $(this.el, ".scope-overlay");
+    const on = level > 0;
+    ov.classList.toggle("hidden", !on);
+    ov.classList.toggle("zoom-2", level === 2);
+    ov.classList.toggle("zoom-3", level === 3);
+    $(this.el, ".crosshair").classList.toggle("hidden", on);
+    $(this.el, ".scope-zoom").textContent = on ? `${level === 1 ? "1" : level === 2 ? "4" : "8"}×` : "";
   }
 
   hitmarker(kind: "hit" | "head" | "kill") {

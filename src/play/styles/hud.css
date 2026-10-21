@@ -11,6 +11,97 @@
 .crosshair .ch-r { left: var(--spread, 6px); }
 .crosshair .ch-dot { width: 3px; height: 3px; left: -1.5px; top: -1.5px; border-radius: 50%; background: var(--acid); }
 .crosshair.ads i:not(.ch-dot) { opacity: 0; }
+.crosshair.hidden { opacity: 0; }
+
+/* LPVO look-through — reticle is dead-center, matching camera hitscan. */
+.scope-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+.scope-overlay.hidden { display: none; }
+.scope-vignette {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle closest-side at 50% 50%, transparent 0 38%, rgba(0, 0, 0, 0.55) 42%, #000 58%);
+}
+.scope-overlay.zoom-2 .scope-vignette {
+  background:
+    radial-gradient(circle closest-side at 50% 50%, transparent 0 34%, rgba(0, 0, 0, 0.65) 38%, #000 54%);
+}
+.scope-overlay.zoom-3 .scope-vignette {
+  background:
+    radial-gradient(circle closest-side at 50% 50%, transparent 0 28%, rgba(0, 0, 0, 0.75) 32%, #000 48%);
+}
+.scope-lens {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(72vmin, 560px);
+  height: min(72vmin, 560px);
+  margin: calc(min(72vmin, 560px) / -2) 0 0 calc(min(72vmin, 560px) / -2);
+  border-radius: 50%;
+  box-shadow:
+    inset 0 0 0 3px rgba(30, 34, 40, 0.95),
+    inset 0 0 40px rgba(0, 0, 0, 0.35),
+    0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+.scope-overlay.zoom-2 .scope-lens {
+  width: min(78vmin, 640px);
+  height: min(78vmin, 640px);
+  margin: calc(min(78vmin, 640px) / -2) 0 0 calc(min(78vmin, 640px) / -2);
+}
+.scope-overlay.zoom-3 .scope-lens {
+  width: min(86vmin, 720px);
+  height: min(86vmin, 720px);
+  margin: calc(min(86vmin, 720px) / -2) 0 0 calc(min(86vmin, 720px) / -2);
+}
+.scope-reticle {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+}
+.scope-reticle .sr-h,
+.scope-reticle .sr-v {
+  position: absolute;
+  background: rgba(20, 22, 18, 0.92);
+  box-shadow: 0 0 1px rgba(255, 255, 255, 0.25);
+}
+.scope-reticle .sr-h { width: 120px; height: 1.5px; left: -60px; top: -0.75px; }
+.scope-reticle .sr-v { width: 1.5px; height: 120px; left: -0.75px; top: -60px; }
+.scope-reticle .sr-dot {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  left: -2px;
+  top: -2px;
+  border-radius: 50%;
+  background: #c8ff3a;
+  box-shadow: 0 0 6px rgba(200, 255, 58, 0.85);
+}
+.scope-reticle .sr-tick {
+  position: absolute;
+  background: rgba(20, 22, 18, 0.85);
+}
+.scope-reticle .sr-tick.t1 { width: 10px; height: 1.5px; left: -5px; top: 18px; }
+.scope-reticle .sr-tick.t2 { width: 10px; height: 1.5px; left: -5px; top: 36px; }
+.scope-reticle .sr-tick.t3 { width: 10px; height: 1.5px; left: -5px; top: 54px; }
+.scope-reticle .sr-tick.t4 { width: 1.5px; height: 10px; left: 18px; top: -5px; }
+.scope-zoom {
+  position: absolute;
+  left: 50%;
+  bottom: 14%;
+  transform: translateX(-50%);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  color: rgba(200, 255, 58, 0.7);
+  text-shadow: 0 0 8px rgba(0, 0, 0, 0.8);
+}
 
 .hitmarker { position: absolute; left: 50%; top: 50%; width: 36px; height: 36px; margin: -18px 0 0 -18px; opacity: 0; }
 .hitmarker::before, .hitmarker::after {
