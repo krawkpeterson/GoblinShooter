@@ -1,4 +1,4 @@
-export type GunKind = "m1911" | "anaconda" | "ruger" | "winchester";
+export type GunKind = "m1911" | "anaconda" | "ruger" | "winchester" | "precision" | "m60";
 
 /** Everything is synthesized at runtime: no audio files ship with the game. */
 export class AudioEngine {
@@ -131,6 +131,8 @@ export class AudioEngine {
       anaconda: { crack: 2800, body: 780, sub: 88, dur: 0.28, vol: 1.15, mech: 900, echo: 0.18 },
       ruger: { crack: 2600, body: 720, sub: 82, dur: 0.26, vol: 1.12, mech: 820, echo: 0.17 },
       winchester: { crack: 1900, body: 620, sub: 70, dur: 0.34, vol: 1.2, mech: 480, echo: 0.2 },
+      precision: { crack: 3200, body: 900, sub: 95, dur: 0.32, vol: 1.25, mech: 1100, echo: 0.22 },
+      m60: { crack: 2400, body: 680, sub: 78, dur: 0.14, vol: 1.05, mech: 700, echo: 0.1 },
     }[kind];
 
     const out = ctx.createGain();
@@ -322,6 +324,17 @@ export class AudioEngine {
       this.metal(t + 0.2, [480, 900], 0.07, 0.18);
       for (let i = 0; i < (empty ? 6 : 3); i++) this.click(t + 0.45 + i * 0.22, 1400, 0.28, 0.03);
       this.click(t + 1.9, 500, 0.5, 0.05);
+    } else if (kind === "precision") {
+      this.click(t + 0.1, 900, 0.35, 0.04);
+      this.metal(t + 0.35, [700, 1400], 0.08, 0.2);
+      this.click(t + 1.1, 1100, 0.4, 0.04);
+      this.click(t + 1.85, 600, 0.55, 0.05);
+      if (empty) this.metal(t + 2.35, [1800, 2800], 0.06, 0.12);
+    } else if (kind === "m60") {
+      this.click(t + 0.08, 500, 0.4, 0.05);
+      this.metal(t + 0.4, [400, 800], 0.1, 0.25);
+      this.click(t + 1.6, 750, 0.45, 0.05);
+      this.metal(t + 2.4, [900, 1600], 0.07, 0.15);
     } else {
       this.click(t + 0.1, 700, 0.35, 0.04); // cylinder latch
       this.metal(t + 0.3, [600, 1200], 0.08, 0.3);
