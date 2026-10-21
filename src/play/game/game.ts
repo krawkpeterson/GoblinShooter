@@ -307,8 +307,8 @@ export class Game {
         const falloff = h.dist > 60 ? Math.max(0.6, 1 - (h.dist - 60) / 200) : 1;
         const dmg = damage * falloff * (h.head ? e.def.headMult : 1);
         const killed = this.goblins.damage(h.goblin, dmg, dir, h.head, big);
-        if (h.goblin.faction === "geezer") this.fx.blood(h.point, dir.clone().negate().lerp(dir, 0.7), killed ? 1.3 : 0.7, h.goblin.pos.y);
-        else this.fx.goo(h.point, dir.clone().negate().lerp(dir, 0.7), killed ? 1.3 : 0.7, h.goblin.pos.y);
+        if (h.goblin.faction === "goblin") this.fx.goo(h.point, dir.clone().negate().lerp(dir, 0.7), killed ? 1.3 : 0.7, h.goblin.pos.y);
+        else this.fx.blood(h.point, dir.clone().negate().lerp(dir, 0.7), killed ? 1.3 : 0.7, h.goblin.pos.y);
         this.audio.impact("flesh", 0);
         this.audio.hitmarker(h.head);
         this.hud.hitmarker(killed ? "kill" : h.head ? "head" : "hit");
@@ -566,11 +566,8 @@ export class Game {
       this.player.health = Math.min(this.player.maxHealth, this.player.health + 35);
       this.hud.killfeed("+35 VITALS", false);
     } else {
-      const g = this.weapons.guns[1];
-      if (g.reserve >= 90) return false;
-      this.weapons.addSecondaryReserve(6);
-      const tag = this.weapons.guns[1]?.def.id === "winchester" ? "12 GAUGE" : ".44 MAGNUM";
-      this.hud.killfeed(`+6 <em>${tag}</em>`, false);
+      if (!this.weapons.addAmmoDrops()) return false;
+      this.hud.killfeed("AMMO <em>BOTH GUNS</em>", false);
     }
     this.audio.click(undefined, 1600, 0.3, 0.04);
     this.audio.sting(0);
@@ -611,7 +608,7 @@ export class Game {
     this.phase = "intermission";
     this.phaseT = 0;
     this.player.health = this.player.maxHealth;
-    if (this.wave > 0) this.weapons.addSecondaryReserve(12);
+    if (this.wave > 0) this.weapons.addAmmoDrops();
   }
 
   private startSurvival() {
@@ -629,11 +626,14 @@ export class Game {
 
   private pickSurvivalKind(elapsed: number): HostileKind {
     const r = Math.random();
-    if (elapsed > 240 && r < 0.03) return "king";
-    if (elapsed > 120 && r < 0.14) return "brute";
-    if (elapsed > 60 && r < 0.22) return "shaman";
-    if (r < 0.28) return "runner";
-    if (r < 0.55) return "geezer";
+    if (elapsed > 180 && r < 0.025) return "trex";
+    if (elapsed > 240 && r < 0.05) return "king";
+    if (elapsed > 90 && r < 0.1) return "dilo";
+    if (elapsed > 45 && r < 0.18) return "raptor";
+    if (elapsed > 120 && r < 0.28) return "brute";
+    if (elapsed > 60 && r < 0.36) return "shaman";
+    if (r < 0.42) return "runner";
+    if (r < 0.62) return "geezer";
     return "grunt";
   }
 
@@ -651,8 +651,9 @@ export class Game {
     }
     if (elapsed >= this.survivalResupplyAt) {
       this.survivalResupplyAt += 45;
-      this.weapons.addSecondaryReserve(24);
-      this.hud.announce("RESUPPLY", "+24 M60 ROUNDS", "acid");
+      this.weapons.addAmmoDrops();
+      this.weapons.addAmmoDrops();
+      this.hud.announce("RESUPPLY", "AMMO FOR BOTH GUNS", "acid");
     }
   }
 
@@ -704,9 +705,11 @@ export class Game {
     this.phaseT = 0;
     this.hud.setWave(n, this.world.director.waves);
     const count = this.world.director.goblinsPerWave + (n - 1) * 3;
-    const geezerN = Math.max(2, Math.round(count * 0.34));
+    const geezerN = Math.max(2, Math.round(count * 0.28));
+    const dinoN = Math.max(1, Math.round(count * (n >= 2 ? 0.18 : 0.1)));
+    const goblinN = Math.max(1, count - geezerN - dinoN);
     this.spawnQueue = [];
-    for (let i = 0; i < count - geezerN; i++) {
+    for (let i = 0; i < goblinN; i++) {
       const r = Math.random();
       let k: HostileKind = "grunt";
       if (n >= 2 && r < 0.28) k = "runner";
@@ -715,15 +718,19 @@ export class Game {
       this.spawnQueue.push(k);
     }
     for (let i = 0; i < geezerN; i++) this.spawnQueue.push("geezer");
+    for (let i = 0; i < dinoN; i++) {
+      const r = Math.random();
+      if (n >= 4 && r < 0.08) this.spawnQueue.push("trex");
+      else if (r < 0.4) this.spawnQueue.push("dilo");
+      else this.spawnQueue.push("raptor");
+    }
     for (let i = this.spawnQueue.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [this.spawnQueue[i], this.spawnQueue[j]] = [this.spawnQueue[j], this.spawnQueue[i]];
     }
-    const geezers = geezerN;
     this.spawnT = 0.5;
     this.audio.goblin("alert", 0.9, 0, 30);
-    const sub = geezers ? `${count - geezers} GOBLINS · ${geezers} EMO GIRLS` : `${count} GOBLINS INBOUND`;
-    this.hud.announce(`WAVE ${n}`, sub, "");
+    this.hud.announce(`WAVE ${n}`, `${goblinN} GOBLINS · ${geezerN} EMOS · ${dinoN} DINOS`, "");
   }
 
   private spawnFromZones(kind: HostileKind): Goblin {
@@ -821,5 +828,9 @@ function weaponTagFor(weapon: string) {
   if (weapon === "m60") return "7.62 NATO";
   if (weapon === "rocket") return "66mm HEAT";
   if (weapon === "mine") return "MINE";
+  if (weapon === "knife") return "KNIFE";
+  if (weapon === "bayonet") return "BAYONET";
+  if (weapon === "machete") return "MACHETE";
+  if (weapon === "crowbar") return "CROWBAR";
   return ".45 ACP";
 }
