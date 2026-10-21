@@ -59,6 +59,8 @@ export class Game {
   private survivalResupplyAt = 45;
   private bossSpawned = false;
   private boss: Goblin | null = null;
+  private rockets: { mesh: THREE.Mesh; vel: THREE.Vector3; life: number; damage: number }[] = [];
+  private mines: { mesh: THREE.Mesh; pos: THREE.Vector3; armT: number; armed: boolean }[] = [];
   private raycaster = new THREE.Raycaster();
   private rayTargets: THREE.Object3D[];
   private clock = new THREE.Clock();
@@ -198,6 +200,8 @@ export class Game {
       this.city.cars.update(dt);
       this.updatePhase(dt);
       this.updateCombo(dt);
+      this.updateRockets(dt);
+      this.updateMines(dt);
       this.pickups.update(dt, this.elapsed, this.player.pos, (k) => this.collect(k));
       const wu = this.city.waterMaterial.userData.uniforms as { uTime: { value: number } };
       wu.uTime.value = this.elapsed;
@@ -253,9 +257,24 @@ export class Game {
   }
 
   private handleFire(e: FireEvent) {
-    const big = e.def.id === "anaconda" || e.def.id === "winchester";
+    const big = e.def.id === "anaconda" || e.def.id === "winchester" || e.def.id === "rocket";
     this.stats.shots++;
-    this.stats.shotsByWeapon[e.def.id]++;
+    this.stats.shotsByWeapon[e.def.id] = (this.stats.shotsByWeapon[e.def.id] ?? 0) + 1;
+    if (e.def.ordnance === "rocket") {
+      this.fx.muzzle(e.muzzleWorld, e.dir, true);
+      const r = e.def.recoil;
+      this.player.kick(r.pitch, (Math.random() - 0.5) * r.yaw * 2, r.trauma, r.fov);
+      this.flashV = 0.18;
+      this.chromaV = 1.2;
+      this.launchRocket(e.muzzleWorld, e.dir, e.def.damage);
+      return;
+    }
+    if (e.def.ordnance === "mine") {
+      this.placeMine();
+      const r = e.def.recoil;
+      this.player.kick(r.pitch, 0, r.trauma, r.fov);
+      return;
+    }
     this.fx.muzzle(e.muzzleWorld, e.dir, big);
     const r = e.def.recoil;
     const adsK = 1 - this.weapons.adsAmount * 0.35;
@@ -320,10 +339,127 @@ export class Game {
     if (anyHit) this.stats.hits++;
   }
 
+  private launchRocket(origin: THREE.Vector3, dir: THREE.Vector3, damage: number) {
+    const geo = new THREE.CylinderGeometry(0.06, 0.08, 0.45, 8);
+    geo.rotateX(Math.PI / 2);
+    const mesh = new THREE.Mesh(
+      geo,
+      new THREE.MeshStandardMaterial({ color: "#6a6e74", metalness: 0.7, roughness: 0.4, emissive: "#402000", emissiveIntensity: 0.4 }),
+    );
+    mesh.position.copy(origin);
+    mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, -1), dir.clone().normalize());
+    this.scene.add(mesh);
+    this.rockets.push({ mesh, vel: dir.clone().normalize().multiplyScalar(52), life: 4, damage });
+  }
+
+  private updateRockets(dt: number) {
+    for (let i = this.rockets.length - 1; i >= 0; i--) {
+      const rk = this.rockets[i];
+      rk.life -= dt;
+      rk.vel.y -= 2.5 * dt;
+      const prev = rk.mesh.position.clone();
+      rk.mesh.position.addScaledVector(rk.vel, dt);
+      rk.mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, -1), rk.vel.clone().normalize());
+
+      const step = rk.mesh.position.clone().sub(prev);
+      const dist = step.length();
+      if (dist > 0.001) {
+        this.raycaster.set(prev, step.normalize());
+        this.raycaster.far = dist + 0.2;
+        const worldHit = this.raycaster.intersectObjects(this.rayTargets, false)[0];
+        const carHit = this.city.cars.raycast(prev, step, dist + 0.2);
+        let hitDist = worldHit?.distance ?? Infinity;
+        if (carHit && carHit.dist < hitDist) hitDist = carHit.dist;
+        let gobHit: { point: THREE.Vector3 } | null = null;
+        for (const h of this.goblins.raycast(prev, step, Math.min(hitDist, dist + 0.2))) {
+          gobHit = h;
+          break;
+        }
+        const groundY = this.collision.groundAt(rk.mesh.position.x, rk.mesh.position.z);
+        const groundHit = rk.mesh.position.y <= groundY + 0.15;
+        if (gobHit || worldHit || carHit || groundHit || rk.life <= 0) {
+          let pos = rk.mesh.position.clone();
+          if (gobHit) pos.copy(gobHit.point);
+          else if (carHit && carHit.dist <= hitDist) pos.copy(prev).addScaledVector(step, carHit.dist);
+          else if (worldHit) pos.copy(worldHit.point);
+          else if (groundHit) pos.y = groundY + 0.2;
+          this.scene.remove(rk.mesh);
+          rk.mesh.geometry.dispose();
+          (rk.mesh.material as THREE.Material).dispose();
+          this.rockets.splice(i, 1);
+          this.explosion(pos, 11, rk.damage, "rocket");
+          if (carHit && carHit.dist <= (worldHit?.distance ?? Infinity) + 0.01) {
+            if (this.city.cars.damage(carHit.car, rk.damage)) this.explodeCar(carHit.car);
+          }
+          for (const other of this.city.cars.cars) {
+            if (other.dead) continue;
+            if (Math.hypot(other.x - pos.x, other.z - pos.z) < 8) {
+              if (this.city.cars.damage(other, rk.damage * 0.6)) this.explodeCar(other);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  private placeMine() {
+    const forward = this.player.forward;
+    const x = this.player.pos.x + forward.x * 1.4;
+    const z = this.player.pos.z + forward.z * 1.4;
+    const y = this.collision.groundAt(x, z) + 0.04;
+    const mesh = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.28, 0.32, 0.08, 12),
+      new THREE.MeshStandardMaterial({ color: "#2a2e28", metalness: 0.4, roughness: 0.7, emissive: "#603000", emissiveIntensity: 0.35 }),
+    );
+    mesh.position.set(x, y, z);
+    const nub = new THREE.Mesh(
+      new THREE.SphereGeometry(0.06, 8, 6),
+      new THREE.MeshBasicMaterial({ color: "#ff6a20" }),
+    );
+    nub.position.y = 0.06;
+    mesh.add(nub);
+    this.scene.add(mesh);
+    this.mines.push({ mesh, pos: new THREE.Vector3(x, y, z), armT: 0.85, armed: false });
+    this.audio.gunshot("mine");
+  }
+
+  private updateMines(dt: number) {
+    for (let i = this.mines.length - 1; i >= 0; i--) {
+      const m = this.mines[i];
+      if (!m.armed) {
+        m.armT -= dt;
+        if (m.armT <= 0) {
+          m.armed = true;
+          const light = m.mesh.children[0] as THREE.Mesh;
+          if (light?.material) (light.material as THREE.MeshBasicMaterial).color.set("#40ff60");
+        }
+        continue;
+      }
+      let trip = false;
+      for (const g of this.goblins.alive) {
+        if (g.pos.distanceTo(m.pos) < 2.4) { trip = true; break; }
+      }
+      if (this.player.pos.distanceTo(m.pos) < 1.6) trip = true;
+      if (trip) {
+        const pos = m.pos.clone();
+        this.scene.remove(m.mesh);
+        m.mesh.traverse((o) => {
+          const mesh = o as THREE.Mesh;
+          mesh.geometry?.dispose?.();
+          const mat = mesh.material as THREE.Material | THREE.Material[] | undefined;
+          if (Array.isArray(mat)) mat.forEach((x) => x.dispose());
+          else mat?.dispose?.();
+        });
+        this.mines.splice(i, 1);
+        this.explosion(pos, 7.5, 280, "mine");
+      }
+    }
+  }
+
   private explodeCar(car: Car) {
     this.stats.carsDestroyed++;
     const pos = new THREE.Vector3(car.x, car.y + 1, car.z);
-    this.explosion(pos, 9, 260);
+    this.explosion(pos, 9, 260, "rocket");
     for (const other of this.city.cars.cars) {
       if (other === car || other.dead) continue;
       if (Math.hypot(other.x - car.x, other.z - car.z) < 7) {
@@ -334,7 +470,7 @@ export class Game {
     }
   }
 
-  private explosion(pos: THREE.Vector3, radius: number, damage: number) {
+  private explosion(pos: THREE.Vector3, radius: number, damage: number, weapon: FireEvent["def"]["id"] = "rocket") {
     this.fx.explosion(pos, 1);
     const dist = pos.distanceTo(this.player.pos);
     this.audio.explosion(dist);
@@ -348,7 +484,7 @@ export class Game {
         const dir = g.pos.clone().sub(pos).setY(0.4).normalize();
         if (this.goblins.damage(g, damage * (1 - d / radius) + 40, dir, false, true)) {
           kills++;
-          this.onGoblinKilled(g, false, "anaconda", d, kills, true);
+          this.onGoblinKilled(g, false, weapon, d, kills, true);
         }
       }
     }
@@ -683,5 +819,7 @@ function weaponTagFor(weapon: string) {
   if (weapon === "winchester") return "12 GAUGE";
   if (weapon === "precision") return "6.5 CM";
   if (weapon === "m60") return "7.62 NATO";
+  if (weapon === "rocket") return "66mm HEAT";
+  if (weapon === "mine") return "MINE";
   return ".45 ACP";
 }
