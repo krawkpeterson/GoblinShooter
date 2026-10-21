@@ -1,0 +1,163 @@
+.touch-pad {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+  touch-action: none;
+  font-family: var(--mono);
+}
+.touch-pad.hidden { display: none; }
+
+.touch-stick {
+  position: absolute;
+  left: max(18px, env(safe-area-inset-left));
+  bottom: max(28px, env(safe-area-inset-bottom));
+  width: 132px;
+  height: 132px;
+  pointer-events: auto;
+  touch-action: none;
+}
+.touch-stick-ring,
+.touch-stick-knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.touch-stick-ring {
+  width: 112px;
+  height: 112px;
+  border: 2px solid rgba(255, 255, 255, 0.28);
+  background: rgba(6, 9, 13, 0.28);
+  box-shadow: inset 0 0 24px rgba(0, 0, 0, 0.35);
+}
+.touch-stick.active .touch-stick-ring {
+  border-color: rgba(182, 255, 31, 0.55);
+  background: rgba(6, 9, 13, 0.4);
+}
+.touch-stick-knob {
+  width: 54px;
+  height: 54px;
+  background: rgba(255, 255, 255, 0.55);
+  border: 2px solid rgba(255, 255, 255, 0.7);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+}
+.touch-stick.active .touch-stick-knob {
+  background: rgba(182, 255, 31, 0.75);
+  border-color: #fff;
+}
+
+.touch-look {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 42%;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.touch-actions {
+  position: absolute;
+  right: max(14px, env(safe-area-inset-right));
+  bottom: max(22px, env(safe-area-inset-bottom));
+  width: 210px;
+  height: 210px;
+  pointer-events: none;
+}
+
+.touch-btn {
+  position: absolute;
+  pointer-events: auto;
+  touch-action: none;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.28);
+  background: rgba(6, 9, 13, 0.42);
+  color: #e8eef5;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  display: grid;
+  place-items: center;
+  user-select: none;
+  -webkit-user-select: none;
+  backdrop-filter: blur(6px);
+}
+.touch-btn.held,
+.touch-btn.pulse {
+  border-color: rgba(182, 255, 31, 0.7);
+  background: rgba(182, 255, 31, 0.28);
+  color: #fff;
+}
+.touch-fire {
+  width: 96px;
+  height: 96px;
+  right: 8px;
+  bottom: 8px;
+  font-size: 14px;
+  letter-spacing: 0.14em;
+  border-width: 3px;
+  background: rgba(180, 28, 36, 0.45);
+  border-color: rgba(255, 120, 120, 0.55);
+}
+.touch-fire.held {
+  background: rgba(220, 40, 48, 0.7);
+  border-color: #fff;
+}
+.touch-ads {
+  width: 64px;
+  height: 64px;
+  right: 118px;
+  bottom: 18px;
+}
+.touch-jump {
+  width: 60px;
+  height: 60px;
+  right: 108px;
+  bottom: 92px;
+}
+.touch-reload {
+  width: 58px;
+  height: 58px;
+  right: 42px;
+  bottom: 118px;
+}
+.touch-swap {
+  width: 52px;
+  height: 52px;
+  right: 132px;
+  bottom: 158px;
+  font-size: 10px;
+}
+.touch-pause {
+  top: max(14px, env(safe-area-inset-top));
+  right: max(14px, env(safe-area-inset-right));
+  width: 44px;
+  height: 44px;
+  pointer-events: auto;
+  font-size: 13px;
+  letter-spacing: 0;
+  border-radius: 12px;
+  z-index: 2;
+}
+
+html.touch .hud .reload-hint { font-size: 11px; }
+html.touch .minimap { transform: scale(0.82); transform-origin: top right; }
+html.touch .hud-ammo { bottom: max(240px, calc(env(safe-area-inset-bottom) + 220px)); }
+html.touch .hud-health { bottom: max(240px, calc(env(safe-area-inset-bottom) + 220px)); }
+
+@media (orientation: portrait) {
+  .touch-stick {
+    width: 120px;
+    height: 120px;
+    bottom: max(100px, env(safe-area-inset-bottom));
+  }
+  .touch-actions {
+    width: 200px;
+    height: 200px;
+  }
+  .touch-look { left: 38%; }
+}
