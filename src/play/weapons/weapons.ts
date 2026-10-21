@@ -41,8 +41,8 @@ export const WEAPONS: Record<GunKind, WeaponDef> = {
     damage: 46,
     headMult: 2.4,
     interval: 0.145,
-    spreadHip: 0.028,
-    spreadAds: 0.0055,
+    spreadHip: 0.018,
+    spreadAds: 0.001,
     reload: 1.65,
     reloadEmpty: 2.15,
     penetration: 1,
@@ -59,8 +59,8 @@ export const WEAPONS: Record<GunKind, WeaponDef> = {
     damage: 150,
     headMult: 2.3,
     interval: 0.58,
-    spreadHip: 0.038,
-    spreadAds: 0.008,
+    spreadHip: 0.024,
+    spreadAds: 0.0012,
     reload: 2.7,
     reloadEmpty: 2.7,
     penetration: 3,
@@ -77,8 +77,8 @@ export const WEAPONS: Record<GunKind, WeaponDef> = {
     damage: 138,
     headMult: 2.3,
     interval: 0.62,
-    spreadHip: 0.034,
-    spreadAds: 0.009,
+    spreadHip: 0.022,
+    spreadAds: 0.0012,
     reload: 2.9,
     reloadEmpty: 2.9,
     penetration: 3,
@@ -95,8 +95,8 @@ export const WEAPONS: Record<GunKind, WeaponDef> = {
     damage: 18,
     headMult: 1.45,
     interval: 0.72,
-    spreadHip: 0.078,
-    spreadAds: 0.048,
+    spreadHip: 0.065,
+    spreadAds: 0.028,
     reload: 2.5,
     reloadEmpty: 2.9,
     penetration: 1,
@@ -269,7 +269,8 @@ export class WeaponSystem {
   get adsAmount() { return this.adsT; }
   get spread() {
     const base = THREE.MathUtils.lerp(this.def.spreadHip, this.def.spreadAds, this.adsT);
-    return base + this.bloom + this.moveSpread;
+    const aim = this.adsT * this.adsT;
+    return base + this.bloom * (1 - aim * 0.92) + this.moveSpread * (1 - aim * 0.85);
   }
 
   setLighting(sun: THREE.Color, intensity: number) {

@@ -156,13 +156,15 @@ export class GoblinManager {
       if (base.distanceToSquared(origin) > (maxDist + 6) ** 2) continue;
       const headC = new THREE.Vector3();
       g.rig.head.getWorldPosition(headC);
-      const th = g.headless ? Infinity : sphere(headC, 0.27 * s);
+      const th = g.headless ? Infinity : sphere(headC, 0.42 * s);
       let tb = Infinity;
-      for (const [hy, r] of [[0.85, 0.34], [0.55, 0.3], [0.25, 0.22]] as const) {
+      for (const [hy, r] of [[0.62, 0.26], [0.38, 0.24], [0.18, 0.18]] as const) {
         tb = Math.min(tb, sphere(base.clone().setY(base.y + hy * s), r * s));
       }
-      const t = Math.min(th, tb);
-      if (t < Infinity) hits.push({ goblin: g, dist: t, head: th <= tb, point: origin.clone().addScaledVector(dir, t) });
+      // Prefer head when the ray grazes both — upper body used to swallow headshots.
+      const head = th < Infinity && th <= tb + 0.28;
+      const t = head ? th : tb;
+      if (t < Infinity) hits.push({ goblin: g, dist: t, head, point: origin.clone().addScaledVector(dir, t) });
     }
     return hits.sort((a, b) => a.dist - b.dist);
   }
