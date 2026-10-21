@@ -469,6 +469,57 @@ export function buildM60(): M60Model {
   return { root, bolt, mag, muzzle, ejection, sightHeight: 0.045 };
 }
 
+export interface RocketModel {
+  root: THREE.Group;
+  muzzle: THREE.Object3D;
+  sightHeight: number;
+}
+
+/** Tube-fired rocket launcher — simple RPG silhouette. */
+export function buildRocketLauncher(): RocketModel {
+  const root = new THREE.Group();
+  const S = MAT.blued, D = MAT.bluedDark, R = MAT.rubber, C = MAT.stainlessDark;
+
+  root.add(mesh(new THREE.CylinderGeometry(0.042, 0.045, 0.72, 16).rotateX(Math.PI / 2), S, 0, 0.02, -0.2));
+  root.add(mesh(new THREE.CylinderGeometry(0.034, 0.034, 0.722, 12).rotateX(Math.PI / 2), MAT.bore, 0, 0.02, -0.2));
+  root.add(mesh(new THREE.CylinderGeometry(0.05, 0.048, 0.06, 16).rotateX(Math.PI / 2), D, 0, 0.02, -0.55));
+  root.add(mesh(new THREE.CylinderGeometry(0.048, 0.052, 0.05, 16).rotateX(Math.PI / 2), D, 0, 0.02, 0.16));
+  root.add(mesh(box(0.05, 0.06, 0.12, 0.004), R, 0, -0.04, 0.02));
+  const grip = mesh(box(0.032, 0.07, 0.045, 0.005), R, 0, -0.07, 0.05);
+  grip.rotation.x = 0.4;
+  root.add(grip);
+  root.add(mesh(box(0.08, 0.012, 0.04, 0.002), C, 0, 0.06, -0.15));
+  root.add(mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.04, 10), S, 0.05, 0.04, -0.05));
+  // Warhead peeking from muzzle when loaded
+  root.add(mesh(new THREE.ConeGeometry(0.028, 0.08, 10).rotateX(-Math.PI / 2), C, 0, 0.02, -0.58));
+
+  const muzzle = new THREE.Object3D();
+  muzzle.position.set(0, 0.02, -0.58);
+  root.add(muzzle);
+  return { root, muzzle, sightHeight: 0.06 };
+}
+
+export interface MineModel {
+  root: THREE.Group;
+  muzzle: THREE.Object3D;
+  sightHeight: number;
+}
+
+/** Anti-personnel mine puck held for toss/plant. */
+export function buildMinePuck(): MineModel {
+  const root = new THREE.Group();
+  const D = MAT.bluedDark, R = MAT.rubber, C = MAT.stainlessDark;
+  root.add(mesh(new THREE.CylinderGeometry(0.055, 0.06, 0.028, 16), D, 0, -0.02, -0.08));
+  root.add(mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.02, 12), C, 0, -0.002, -0.08));
+  root.add(mesh(new THREE.SphereGeometry(0.012, 8, 6), MAT.tritiumOrange, 0, 0.012, -0.08));
+  root.add(mesh(box(0.04, 0.05, 0.06, 0.008), R, 0, -0.06, 0.02));
+
+  const muzzle = new THREE.Object3D();
+  muzzle.position.set(0, -0.02, -0.08);
+  root.add(muzzle);
+  return { root, muzzle, sightHeight: 0.02 };
+}
+
 /** Gloved shooting hands in a thumbs-forward two-hand grip. */
 export function buildHands(): { right: THREE.Group; left: THREE.Group } {
   const right = new THREE.Group();
