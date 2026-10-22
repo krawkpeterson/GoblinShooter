@@ -428,9 +428,10 @@ export class GoblinManager {
       if (g.kind === "shaman" && rig.root.userData.orb) this.fx.magic((rig.root.userData.orb as THREE.Object3D).getWorldPosition(new THREE.Vector3()), 0xb06bff);
       if (g.kind === "dilo" && rig.root.userData.frill) {
         const frill = rig.root.userData.frill as THREE.Object3D;
-        const open = g.state === "windup" || g.state === "recover" ? 1 : 0.35;
-        frill.scale.x += (open * 1.1 - frill.scale.x) * Math.min(1, dt * 8);
-        frill.scale.y += (open * 1.2 - frill.scale.y) * Math.min(1, dt * 8);
+        // SNES spitters fan the neck frill wide on windup, then tuck it after the spit.
+        const open = g.state === "windup" ? 1 : g.state === "recover" ? 0.7 : 0.28;
+        frill.scale.x += (open * 1.35 - frill.scale.x) * Math.min(1, dt * 10);
+        frill.scale.y += (open * 1.45 - frill.scale.y) * Math.min(1, dt * 10);
       }
     }
 
